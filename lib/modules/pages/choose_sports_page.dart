@@ -106,15 +106,12 @@ class _ChooseSportsPageState extends State<ChooseSportsPage>
     try {
       final sportsData = await ApiService.getSports();
       setState(() {
-        _sports = sportsData.map((data) => Sport.fromJson(data)).toList();
-
-        // Load user's already selected sports
-        _loadUserPreferences();
+        _sports = (sportsData as List).map((sport) => Sport.fromJson(sport)).toList();
       });
     } catch (e) {
-      print('Error loading sports: $e');
-      // Fallback to hardcoded sports
-      _loadHardcodedSports();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load sports: $e')),
+      );
     }
   }
 
@@ -217,6 +214,24 @@ class _ChooseSportsPageState extends State<ChooseSportsPage>
         sport.isSelected = false;
       }
     });
+  }
+
+  void _onContinue() async {
+    try {
+      await ApiService.savePreferences({
+        'sport_ids': _selectedSportIds.toList(),
+      });
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FollowTeamsPage(selectedSportIds: _selectedSportIds.toList()),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save preferences: $e')),
+      );
+    }
   }
 
   @override
@@ -760,16 +775,7 @@ class _ChooseSportsPageState extends State<ChooseSportsPage>
 
   Widget _buildContinueButton() {
     return ElevatedButton(
-      onPressed: _selectedSportIds.isNotEmpty
-          ? () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const FollowTeamsPage(),
-                ),
-              );
-            }
-          : null,
+      onPressed: _selectedSportIds.isNotEmpty ? _onContinue : null,
       style: ElevatedButton.styleFrom(
         backgroundColor: primaryGreen,
         foregroundColor: Colors.white,
@@ -1360,7 +1366,7 @@ class _ChooseSportsPageState extends State<ChooseSportsPage>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const FollowTeamsPage(),
+                                builder: (context) => const FollowTeamsPage(selectedSportIds: [],),
                               ),
                             );
                           } catch (e) {

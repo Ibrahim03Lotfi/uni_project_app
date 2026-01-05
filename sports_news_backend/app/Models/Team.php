@@ -6,5 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Team extends Model
 {
-    //
+    public function league()
+{
+    return $this->belongsTo(League::class);
+}
 }

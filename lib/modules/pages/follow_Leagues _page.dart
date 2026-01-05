@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:sports_news_app/modules/pages/follow_players_page.dart';
+import 'package:sports_news_app/services/api_service.dart';
 
 // League Model
 class League {
@@ -35,6 +39,44 @@ class FollowLeaguesPage extends StatefulWidget {
 
 class _FollowLeaguesPageState extends State<FollowLeaguesPage>
     with SingleTickerProviderStateMixin {
+
+      // Add to your FollowLeaguesPage state class
+List<dynamic> _leagues = [];
+Set<int> _selectedLeagueIds = {};
+
+
+
+Future<void> _fetchLeagues() async {
+  try {
+    // Replace with your actual endpoint
+    final response = await http.get(
+      Uri.parse('${ApiService.baseUrl}/leagues'),
+      headers: await ApiService.headers,
+    );
+    
+    if (response.statusCode == 200) {
+      setState(() {
+        _leagues = json.decode(response.body)['data'];
+      });
+    }
+  } catch (e) {
+    print('Error fetching leagues: $e');
+  }
+}
+
+void _onFinish() async {
+  try {
+    await ApiService.savePreferences({
+      'league_ids': _selectedLeagueIds.toList(),
+    });
+    // Navigate to home page
+    Navigator.pushReplacementNamed(context, '/home');
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to save league preferences')),
+    );
+  }
+}
   static const Color primaryGreen = Color(0xFF43A047);
   static const Color darkGreen = Color(0xFF2E7D32);
   static const Color lightGreen = Color(0xFF81C784);
@@ -49,8 +91,10 @@ class _FollowLeaguesPageState extends State<FollowLeaguesPage>
   @override
   void initState() {
     super.initState();
+    _fetchLeagues();
     _tabController = TabController(length: 5, vsync: this);
     _initializeLeagues();
+    
   }
 
   void _initializeLeagues() {

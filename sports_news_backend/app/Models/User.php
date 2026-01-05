@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -18,8 +19,7 @@ class User extends Authenticatable
         'bio',
         'profile_image',
         'password',
-        'is_admin',
-        'is_super_admin',
+        'role',
         'settings',
     ];
 
@@ -32,9 +32,22 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'settings' => 'array',
-        'is_admin' => 'boolean',
-        'is_super_admin' => 'boolean',
+        'role' => UserRole::class,
     ];
+
+    protected $attributes = [
+        'role' => UserRole::USER->value,
+    ];
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === UserRole::SUPER_ADMIN;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === UserRole::ADMIN || $this->isSuperAdmin();
+    }
 
     // Add these to your existing User model:
 public function preferredSports()

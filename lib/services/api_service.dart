@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
- static const String baseUrl = 'http://192.168.1.4:8000/api';
+ static const String baseUrl = 'http://172.20.10.5:8000/api';
   static String? token;
 
   static Future<Map<String, String>> get headers async {
@@ -94,13 +94,13 @@ class ApiService {
     }
   }
 
-  // Get all sports from backend
+
+// Get all sports
 static Future<List<dynamic>> getSports() async {
   final url = Uri.parse('$baseUrl/sports');
   final response = await http.get(url, headers: await headers);
-  
   if (response.statusCode == 200) {
-    return json.decode(response.body);
+    return json.decode(response.body)['data'];
   } else {
     throw Exception('Failed to load sports');
   }
@@ -130,6 +130,35 @@ static Future<List<dynamic>> getUserSports() async {
     return data['sports'];
   } else {
     throw Exception('Failed to load user preferences');
+  }
+}
+
+
+// Add these methods to ApiService class
+
+
+
+// Save user preferences
+static Future<void> savePreferences(Map<String, dynamic> preferences) async {
+  final url = Uri.parse('$baseUrl/user/preferences');
+  final response = await http.post(
+    url,
+    headers: await headers,
+    body: json.encode(preferences),
+  );
+  if (response.statusCode != 200) {
+    throw Exception('Failed to save preferences');
+  }
+}
+
+// Get user preferences
+static Future<Map<String, dynamic>> getUserPreferences() async {
+  final url = Uri.parse('$baseUrl/user/preferences');
+  final response = await http.get(url, headers: await headers);
+  if (response.statusCode == 200) {
+    return json.decode(response.body);
+  } else {
+    throw Exception('Failed to load preferences');
   }
 }
 }
