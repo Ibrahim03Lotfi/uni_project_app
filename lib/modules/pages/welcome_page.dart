@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sports_news_app/modules/pages/login_page.dart';
 import 'package:sports_news_app/modules/pages/register_page.dart';
+import 'package:sports_news_app/services/api_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'dart:math' as math;
 
 class WelcomePage extends StatefulWidget {
@@ -44,8 +47,8 @@ class _WelcomePageState extends State<WelcomePage>
     );
     _slideAnimation =
         Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-    );
+          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+        );
 
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
@@ -85,8 +88,10 @@ class _WelcomePageState extends State<WelcomePage>
               children: [
                 _buildMobileNavBar(),
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
                   child: FadeTransition(
                     opacity: _fadeAnimation,
                     child: SlideTransition(
@@ -94,7 +99,9 @@ class _WelcomePageState extends State<WelcomePage>
                       child: Column(
                         children: [
                           SizedBox(
-                              height: 220, child: _buildIllustrationSection()),
+                            height: 220,
+                            child: _buildIllustrationSection(),
+                          ),
                           const SizedBox(height: 32),
                           _buildHeadline(fontSize: 32, centered: true),
                           const SizedBox(height: 16),
@@ -153,8 +160,7 @@ class _WelcomePageState extends State<WelcomePage>
             onPressed: () {
               _showAdminLoginDialog(context);
             },
-            icon:
-                Icon(Icons.admin_panel_settings, color: adminColor, size: 24),
+            icon: Icon(Icons.admin_panel_settings, color: adminColor, size: 24),
             tooltip: 'Admin Login',
           ),
         ],
@@ -207,8 +213,7 @@ class _WelcomePageState extends State<WelcomePage>
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => const RegisterPage()),
+                  MaterialPageRoute(builder: (context) => const RegisterPage()),
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -250,8 +255,7 @@ class _WelcomePageState extends State<WelcomePage>
             style: OutlinedButton.styleFrom(
               foregroundColor: primaryGreen,
               side: const BorderSide(color: primaryGreen, width: 2),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
               ),
@@ -443,8 +447,7 @@ class _WelcomePageState extends State<WelcomePage>
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(
-          top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant),
+          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         ),
       ),
       child: Column(
@@ -543,8 +546,10 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
                     const SizedBox(width: 12),
                     const Text(
                       'Admin Login',
-                      style:
-                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -640,7 +645,9 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
                     items: _sports
                         .map(
                           (sport) => DropdownMenuItem(
-                              value: sport, child: Text(sport)),
+                            value: sport,
+                            child: Text(sport),
+                          ),
                         )
                         .toList(),
                     onChanged: (value) {
@@ -668,8 +675,10 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
                     ),
                     child: const Text(
                       'Login',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -847,14 +856,8 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
             icon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Admins',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.sports),
-            label: 'Sports',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Admins'),
+          BottomNavigationBarItem(icon: Icon(Icons.sports), label: 'Sports'),
         ],
       ),
     );
@@ -895,7 +898,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
             ),
           ),
           const SizedBox(height: 24),
-          
+
           // Stats Cards - FIXED: Using LayoutBuilder for responsive grid
           LayoutBuilder(
             builder: (context, constraints) {
@@ -953,7 +956,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
               );
             },
           ),
-          
+
           const SizedBox(height: 24),
           Text(
             'Quick Actions',
@@ -974,11 +977,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
             Icons.add_circle_outline,
             _showAddSportDialog,
           ),
-          _buildQuickActionButton(
-            'System Settings',
-            Icons.settings,
-            () {},
-          ),
+          _buildQuickActionButton('System Settings', Icons.settings, () {}),
         ],
       ),
     );
@@ -1037,8 +1036,9 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color:
-                                  _getSportColor(admin['sport']!).withOpacity(0.1),
+                              color: _getSportColor(
+                                admin['sport']!,
+                              ).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -1087,8 +1087,10 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                       ),
                       const PopupMenuItem(
                         value: 'delete',
-                        child:
-                            Text('Delete', style: TextStyle(color: Colors.red)),
+                        child: Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
                     ],
                   ),
@@ -1133,8 +1135,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                   leading: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color:
-                          _getSportColor(sport['name']!).withOpacity(0.1),
+                      color: _getSportColor(sport['name']!).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -1336,7 +1337,8 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
       builder: (context) => AlertDialog(
         title: const Text('Delete Sport'),
         content: const Text(
-            'Are you sure you want to delete this sport? This action cannot be undone.'),
+          'Are you sure you want to delete this sport? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1347,10 +1349,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
               print('Deleting sport: $sportId');
               Navigator.pop(context);
             },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1362,10 +1361,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
 class AdminDashboardPage extends StatefulWidget {
   final String assignedSport;
 
-  const AdminDashboardPage({
-    super.key,
-    required this.assignedSport,
-  });
+  const AdminDashboardPage({super.key, required this.assignedSport});
 
   @override
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
@@ -1374,6 +1370,21 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   int _selectedTab = 0;
   final Color _adminColor = const Color(0xFF9C27B0);
+
+  // Create Tab State
+  final _createFormKey = GlobalKey<FormState>();
+  final _createTitleController = TextEditingController();
+  final _createBodyController = TextEditingController();
+  XFile? _createSelectedImage;
+  bool _isCreateLoading = false;
+  final ImagePicker _picker = ImagePicker();
+
+  @override
+  void dispose() {
+    _createTitleController.dispose();
+    _createBodyController.dispose();
+    super.dispose();
+  }
 
   final List<Map<String, dynamic>> _mockPosts = [
     {
@@ -1468,10 +1479,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             icon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.newspaper),
-            label: 'Posts',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: 'Posts'),
           BottomNavigationBarItem(
             icon: Icon(Icons.add_circle),
             label: 'Create',
@@ -1523,7 +1531,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
           ),
           const SizedBox(height: 24),
-          
+
           // Stats Cards - FIXED: Using LayoutBuilder for responsive grid
           LayoutBuilder(
             builder: (context, constraints) {
@@ -1581,7 +1589,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               );
             },
           ),
-          
+
           const SizedBox(height: 24),
           Text(
             'Recent Posts',
@@ -1682,83 +1690,214 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   Widget _buildCreateTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Create New Post',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
+      child: Form(
+        key: _createFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Create New Post',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Create a new post for ${widget.assignedSport}',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            const SizedBox(height: 8),
+            Text(
+              'Create a new post for ${widget.assignedSport}',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-          const SizedBox(height: 32),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  TextFormField(
-                    decoration: InputDecoration(
-                      labelText: 'Post Title',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    maxLines: 1,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    decoration: InputDecoration(
-                      labelText: 'Post Content',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    maxLines: 5,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    decoration: InputDecoration(
-                      labelText: 'Image URL (optional)',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _adminColor,
-                        shape: RoundedRectangleBorder(
+            const SizedBox(height: 32),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _createTitleController,
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Please enter a title'
+                          : null,
+                      decoration: InputDecoration(
+                        labelText: 'Post Title',
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Publish Post',
-                        style: TextStyle(fontSize: 16),
+                      maxLines: 1,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _createBodyController,
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Please enter content'
+                          : null,
+                      decoration: InputDecoration(
+                        labelText: 'Post Content',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      maxLines: 5,
+                    ),
+                    const SizedBox(height: 16),
+                    // Image Picker
+                    GestureDetector(
+                      onTap: () async {
+                        final XFile? image = await _picker.pickImage(
+                          source: ImageSource.gallery,
+                        );
+                        if (image != null) {
+                          setState(() {
+                            _createSelectedImage = image;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            if (_createSelectedImage != null)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  File(_createSelectedImage!.path),
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            else
+                              const Icon(
+                                Icons.image,
+                                size: 30,
+                                color: Colors.grey,
+                              ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                _createSelectedImage != null
+                                    ? 'Image selected'
+                                    : 'Add Cover Image (Optional)',
+                                style: TextStyle(
+                                  color: _createSelectedImage != null
+                                      ? Colors.black
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ),
+                            if (_createSelectedImage != null)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  color: Colors.red,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _createSelectedImage = null),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _isCreateLoading
+                            ? null
+                            : _submitCreateTabPost,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _adminColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _isCreateLoading
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Publish Post',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _submitCreateTabPost() async {
+    if (_createFormKey.currentState!.validate()) {
+      setState(() => _isCreateLoading = true);
+      try {
+        int sportId;
+        switch (widget.assignedSport.toLowerCase()) {
+          case 'football':
+            sportId = 1;
+            break;
+          case 'basketball':
+            sportId = 2;
+            break;
+          case 'tennis':
+            sportId = 3;
+            break;
+          case 'volleyball':
+            sportId = 4;
+            break;
+          default:
+            sportId = 1;
+        }
+
+        await ApiService.createPost(
+          title: _createTitleController.text,
+          description: _createBodyController.text,
+          content: _createBodyController.text,
+          sportId: sportId,
+          category: 'General',
+          imagePath: _createSelectedImage?.path,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('News post created successfully!')),
+          );
+          // Clear form
+          _createTitleController.clear();
+          _createBodyController.clear();
+          setState(() {
+            _createSelectedImage = null;
+            _selectedTab = 1; // Switch to Post list tab to see it
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to create post: $e')));
+        }
+      } finally {
+        if (mounted) setState(() => _isCreateLoading = false);
+      }
+    }
   }
 
   Widget _buildPostCard(Map<String, dynamic> post) {
@@ -1923,9 +2062,54 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       context: context,
       builder: (context) => CreatePostDialog(
         assignedSport: widget.assignedSport,
-        onPost: (postData) {
-          print('Creating post: $postData');
-          Navigator.pop(context);
+        onPost: (postData) async {
+          try {
+            int sportId;
+            switch (widget.assignedSport.toLowerCase()) {
+              case 'football':
+                sportId = 1;
+                break;
+              case 'basketball':
+                sportId = 2;
+                break;
+              case 'tennis':
+                sportId = 3;
+                break;
+              case 'volleyball':
+                sportId = 4;
+                break;
+              default:
+                sportId = 1; // Default or handle error
+            }
+
+            await ApiService.createPost(
+              title: postData['title'],
+              description:
+                  postData['body'], // Using body as description for now
+              content: postData['body'],
+              sportId: sportId,
+              category: 'General', // Default category
+              imagePath: postData['image_path'],
+            );
+
+            if (mounted) {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('News post created successfully!'),
+                ),
+              );
+            }
+          } catch (e) {
+            // Error is handled in dialog, but if it propagates:
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to create post: $e')),
+              );
+            }
+            rethrow; // Re-throw so dialog stops loading if we want, OR dialog handles it.
+            // Actually dialog catches it, so we should throw.
+          }
         },
       ),
     );
@@ -1949,7 +2133,12 @@ class _AddAdminDialogState extends State<AddAdminDialog> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   String? _selectedSport;
-  final List<String> _sports = ['Football', 'Basketball', 'Tennis', 'Volleyball'];
+  final List<String> _sports = [
+    'Football',
+    'Basketball',
+    'Tennis',
+    'Volleyball',
+  ];
 
   @override
   void dispose() {
@@ -1994,7 +2183,10 @@ class _AddAdminDialogState extends State<AddAdminDialog> {
                       const SizedBox(width: 12),
                       const Text(
                         'Add New Admin',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -2063,10 +2255,12 @@ class _AddAdminDialogState extends State<AddAdminDialog> {
                       ),
                     ),
                     items: _sports
-                        .map((sport) => DropdownMenuItem(
-                              value: sport,
-                              child: Text(sport),
-                            ))
+                        .map(
+                          (sport) => DropdownMenuItem(
+                            value: sport,
+                            child: Text(sport),
+                          ),
+                        )
                         .toList(),
                     onChanged: (value) {
                       setState(() {
@@ -2193,7 +2387,10 @@ class _AddSportDialogState extends State<AddSportDialog> {
                       const SizedBox(width: 12),
                       const Text(
                         'Add New Sport',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -2252,7 +2449,9 @@ class _AddSportDialogState extends State<AddSportDialog> {
                             icon,
                             color: isSelected
                                 ? const Color(0xFF43A047)
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                             size: 24,
                           ),
                         ),
@@ -2388,7 +2587,10 @@ class _EditSportDialogState extends State<EditSportDialog> {
                       const SizedBox(width: 12),
                       const Text(
                         'Edit Sport',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -2412,8 +2614,9 @@ class _EditSportDialogState extends State<EditSportDialog> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _getSportColor(_nameController.text)
-                          .withOpacity(0.1),
+                      color: _getSportColor(
+                        _nameController.text,
+                      ).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -2502,7 +2705,7 @@ class _EditSportDialogState extends State<EditSportDialog> {
 
 class CreatePostDialog extends StatefulWidget {
   final String assignedSport;
-  final Function(Map<String, dynamic>) onPost;
+  final Future<void> Function(Map<String, dynamic>) onPost;
 
   const CreatePostDialog({
     super.key,
@@ -2518,14 +2721,26 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _bodyController = TextEditingController();
-  final TextEditingController _imageUrlController = TextEditingController();
+
+  File? _selectedImage;
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _titleController.dispose();
     _bodyController.dispose();
-    _imageUrlController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
   }
 
   @override
@@ -2563,11 +2778,16 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                       const SizedBox(width: 12),
                       const Text(
                         'Create New Post',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
+
+                  // Title Input
                   TextFormField(
                     controller: _titleController,
                     decoration: InputDecoration(
@@ -2576,14 +2796,13 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter post title';
-                      }
-                      return null;
-                    },
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? 'Please enter post title'
+                        : null,
                   ),
                   const SizedBox(height: 16),
+
+                  // Body Input
                   TextFormField(
                     controller: _bodyController,
                     decoration: InputDecoration(
@@ -2591,16 +2810,16 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      alignLabelWithHint: true,
                     ),
                     maxLines: 5,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter post content';
-                      }
-                      return null;
-                    },
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? 'Please enter post content'
+                        : null,
                   ),
                   const SizedBox(height: 16),
+
+                  // Sport Indicator
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -2609,8 +2828,10 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.sports,
-                            color: _getSportColor(widget.assignedSport)),
+                        Icon(
+                          Icons.sports,
+                          color: _getSportColor(widget.assignedSport),
+                        ),
                         const SizedBox(width: 12),
                         Text(
                           'Sport: ${widget.assignedSport}',
@@ -2620,16 +2841,47 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _imageUrlController,
-                    decoration: InputDecoration(
-                      labelText: 'Image URL (optional)',
-                      border: OutlineInputBorder(
+
+                  // Image Picker
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: Container(
+                      height: 150,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        border: Border.all(color: Colors.grey[300]!),
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      child: _selectedImage != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                _selectedImage!,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_photo_alternate,
+                                  size: 40,
+                                  color: Colors.grey,
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Add Cover Image (Optional)',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
+
                   const SizedBox(height: 32),
+
+                  // Action Buttons
                   Row(
                     children: [
                       Expanded(
@@ -2647,16 +2899,33 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
-                            if (_formKey.currentState!.validate()) {
-                              widget.onPost({
-                                'title': _titleController.text,
-                                'body': _bodyController.text,
-                                'sport': widget.assignedSport,
-                                'image_url': _imageUrlController.text,
-                              });
-                            }
-                          },
+                          onPressed: _isLoading
+                              ? null
+                              : () async {
+                                  if (_formKey.currentState!.validate()) {
+                                    setState(() => _isLoading = true);
+
+                                    try {
+                                      await widget.onPost({
+                                        'title': _titleController.text,
+                                        'body': _bodyController.text,
+                                        // 'sport': widget.assignedSport, // Handled by parent using assignedSport
+                                        'image_path': _selectedImage?.path,
+                                      });
+                                      // Dialog closed by parent on success or we can close it here if parent doesn't
+                                    } catch (e) {
+                                      if (mounted) {
+                                        setState(() => _isLoading = false);
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(content: Text('Error: $e')),
+                                        );
+                                      }
+                                    }
+                                  }
+                                },
+
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF9C27B0),
                             foregroundColor: Colors.white,
@@ -2665,7 +2934,16 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text('Publish Post'),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Publish Post'),
                         ),
                       ),
                     ],

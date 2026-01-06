@@ -7,6 +7,7 @@ use App\Http\Controllers\UserPreferenceController;
 use App\Http\Controllers\Api\SportController;
 use App\Http\Controllers\Api\LeagueController;
 use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\NewsArticleController;
 
 Route::get('/test', function () {
     return response()->json(['message' => 'API is working!']);
@@ -37,4 +38,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/leagues', [UserPreferenceController::class, 'updateLeagues']);
         Route::post('/players', [UserPreferenceController::class, 'updatePlayers']);
     });
+
+    // News/Posts routes
+    Route::get('/feed', [NewsArticleController::class, 'index']); // User News Feed
+    Route::get('/posts/search', [NewsArticleController::class, 'search']); // Search
+    Route::post('/posts', [NewsArticleController::class, 'store']); // Create News
 });

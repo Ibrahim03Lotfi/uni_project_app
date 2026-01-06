@@ -21,6 +21,7 @@ class User extends Authenticatable
         'password',
         'role',
         'settings',
+        'assigned_sport_id',
     ];
 
     protected $hidden = [
@@ -50,23 +51,28 @@ class User extends Authenticatable
     }
 
     // Add these to your existing User model:
-public function preferredSports()
-{
-    return $this->belongsToMany(Sport::class, 'user_sports');
-}
+    public function preferredSports()
+    {
+        return $this->belongsToMany(Sport::class, 'user_sports');
+    }
 
-public function preferredTeams()
-{
-    return $this->belongsToMany(Team::class, 'user_teams');
-}
+    public function preferredTeams()
+    {
+        return $this->belongsToMany(Team::class, 'user_teams');
+    }
 
-public function preferredLeagues()
-{
-    return $this->belongsToMany(League::class, 'user_leagues');
-}
+    public function preferredLeagues()
+    {
+        return $this->belongsToMany(League::class, 'user_leagues');
+    }
 
-public function preferredPlayers()
-{
-    return $this->belongsToMany(Player::class, 'user_players');
-}
+    public function preferredPlayers()
+    {
+        return $this->belongsToMany(Player::class, 'user_players');
+    }
+
+    public function assignedSport()
+    {
+        return $this->belongsTo(Sport::class, 'assigned_sport_id');
+    }
 }

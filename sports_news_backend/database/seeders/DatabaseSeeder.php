@@ -15,11 +15,10 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            AdminUserSeeder::class,
             SportsSeeder::class,
-             LeaguesTableSeeder::class,
-              TeamsTableSeeder::class,
-            // Add other seeders here
+            LeaguesTableSeeder::class,
+            TeamsTableSeeder::class,
+            AdminUserSeeder::class,
         ]);
     }
 }
