@@ -2,15 +2,16 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.8:8000/api';
+  static const String baseUrl = 'http://172.20.10.5:8000/api';
   static String? token;
 
   static Future<Map<String, String>> get headers async {
-    return {
+    final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
     };
+    return headers;
   }
 
   static Future<Map<String, dynamic>> register({
@@ -63,6 +64,26 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> adminLogin({
+    required String email,
+    required String password,
+  }) async {
+    final url = Uri.parse('$baseUrl/admin/login');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({'email': email, 'password': password}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      token = data['token'];
+      return data;
+    } else {
+      throw Exception('Failed to login as admin');
+    }
+  }
+
   static Future<void> logout() async {
     final url = Uri.parse('$baseUrl/logout');
     final response = await http.post(url, headers: await headers);
@@ -90,7 +111,8 @@ class ApiService {
     final url = Uri.parse('$baseUrl/sports');
     final response = await http.get(url, headers: await headers);
     if (response.statusCode == 200) {
-      return json.decode(response.body)['data'];
+      final data = json.decode(response.body);
+      return data['data'] ?? []; // Extract data array from response
     } else {
       throw Exception('Failed to load sports');
     }
@@ -107,6 +129,48 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to save sports preferences');
+    }
+  }
+
+  // Save selected teams
+  static Future<void> saveTeamsPreferences(List<int> teamIds) async {
+    final url = Uri.parse('$baseUrl/preferences/teams');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({'team_ids': teamIds}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to save teams preferences');
+    }
+  }
+
+  // Save selected leagues
+  static Future<void> saveLeaguesPreferences(List<int> leagueIds) async {
+    final url = Uri.parse('$baseUrl/preferences/leagues');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({'league_ids': leagueIds}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to save leagues preferences');
+    }
+  }
+
+  // Save selected players
+  static Future<void> savePlayersPreferences(List<int> playerIds) async {
+    final url = Uri.parse('$baseUrl/preferences/players');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({'player_ids': playerIds}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to save players preferences');
     }
   }
 
@@ -156,7 +220,7 @@ class ApiService {
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      return data['data']; // Assuming paginate() returns a 'data' array
+      return data['data']; // Resource collection returns 'data' array
     } else {
       throw Exception('Failed to load news feed');
     }
@@ -205,9 +269,143 @@ class ApiService {
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      return data['data']; // Assuming paginate() returns a 'data' array
+      return data['data']; // Resource collection returns 'data' array
     } else {
       throw Exception('Failed to search posts');
+    }
+  }
+
+  // Get user profile with role information
+  static Future<Map<String, dynamic>> getUserProfile() async {
+    final url = Uri.parse('$baseUrl/user');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to get user profile');
+    }
+  }
+
+  // Get leagues by sport
+  static Future<List<dynamic>> getLeaguesBySport(int sportId) async {
+    final url = Uri.parse('$baseUrl/sports/$sportId/leagues');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['data'] ?? []; // Extract data array from response
+    } else {
+      throw Exception('Failed to load leagues');
+    }
+  }
+
+  // Get teams by league
+  static Future<List<dynamic>> getTeamsByLeague(int leagueId) async {
+    final url = Uri.parse('$baseUrl/leagues/$leagueId/teams');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['data'] ?? []; // Extract data array from response
+    } else {
+      throw Exception('Failed to load teams');
+    }
+  }
+
+  // Toggle like on a post
+  static Future<Map<String, dynamic>> toggleLike(int articleId) async {
+    final url = Uri.parse('$baseUrl/posts/$articleId/like');
+    final response = await http.post(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to toggle like');
+    }
+  }
+
+  // Save all preferences at once
+  static Future<Map<String, dynamic>> saveAllPreferences({
+    List<int>? sportIds,
+    List<int>? teamIds,
+  }) async {
+    final url = Uri.parse('$baseUrl/preferences');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({
+        if (sportIds != null) 'sport_ids': sportIds,
+        if (teamIds != null) 'team_ids': teamIds,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to save preferences');
+    }
+  }
+
+  // Super Admin: Create admin
+  static Future<Map<String, dynamic>> createAdmin({
+    required String name,
+    required String email,
+    required String password,
+    required int assignedSportId,
+  }) async {
+    final url = Uri.parse('$baseUrl/admin/admins');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({
+        'name': name,
+        'email': email,
+        'password': password,
+        'password_confirmation': password,
+        'assigned_sport_id': assignedSportId,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to create admin');
+    }
+  }
+
+  // Super Admin: Get all users
+  static Future<Map<String, dynamic>> getAllUsers() async {
+    final url = Uri.parse('$baseUrl/admin/users');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load users');
+    }
+  }
+
+  // Super Admin: Delete user
+  static Future<void> deleteUser(int userId) async {
+    final url = Uri.parse('$baseUrl/admin/users/$userId');
+    final response = await http.delete(url, headers: await headers);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete user');
+    }
+  }
+
+  // Super Admin: Get sports for assignment
+  static Future<List<dynamic>> getSportsForAssignment() async {
+    final url = Uri.parse('$baseUrl/admin/sports/assignment');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['data'] ?? []; // Extract data array from response
+    } else {
+      throw Exception('Failed to load sports for assignment');
     }
   }
 }

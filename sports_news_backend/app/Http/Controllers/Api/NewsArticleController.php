@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\NewsArticle;
 use App\Models\Sport;
 use App\Models\Team;
+use App\Http\Resources\NewsArticleResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -41,8 +42,8 @@ class NewsArticleController extends Controller
         $query->addSelect([
             'is_liked' => function ($query) use ($user) {
                 $query->selectRaw('count(*)')
-                    ->from('article_likes') // NOTE: table name from migration
-                    ->whereColumn('post_id', 'news_articles.id') // 'post_id' assumed from typical Laravel likeable implementation, but schema used 'news_article_id' or similar? Need to check ArticleLikes migration, assuming 'article_likes' table.
+                    ->from('article_likes')
+                    ->whereColumn('article_id', 'news_articles.id')
                     ->where('user_id', $user->id);
             }
         ]);
@@ -50,7 +51,7 @@ class NewsArticleController extends Controller
 
         $posts = $query->latest()->paginate(10);
 
-        return response()->json($posts);
+        return NewsArticleResource::collection($posts);
     }
 
     /**
@@ -103,7 +104,7 @@ class NewsArticleController extends Controller
             'published_at' => now(),
         ]);
 
-        return response()->json($article, 201);
+        return new NewsArticleResource($article);
     }
 
     /**
@@ -122,6 +123,35 @@ class NewsArticleController extends Controller
             ->latest()
             ->paginate(10);
 
-        return response()->json($posts);
+        return NewsArticleResource::collection($posts);
+    }
+
+    /**
+     * Toggle like on a news article.
+     */
+    public function toggleLike($articleId, Request $request)
+    {
+        $user = $request->user();
+        $article = NewsArticle::findOrFail($articleId);
+
+        $existingLike = $article->likes()->where('user_id', $user->id)->first();
+
+        if ($existingLike) {
+            // Remove like
+            $existingLike->delete();
+            $liked = false;
+            $message = 'Like removed';
+        } else {
+            // Add like
+            $article->likes()->create(['user_id' => $user->id]);
+            $liked = true;
+            $message = 'Article liked';
+        }
+
+        return response()->json([
+            'message' => $message,
+            'liked' => $liked,
+            'likes_count' => $article->likes()->count()
+        ]);
     }
 }

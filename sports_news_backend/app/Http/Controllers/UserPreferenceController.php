@@ -91,4 +91,33 @@ class UserPreferenceController extends Controller
             'players' => $user->preferredPlayers()->get(),
         ]);
     }
+
+    // Save all preferences at once
+    public function saveAll(Request $request)
+    {
+        $request->validate([
+            'sport_ids' => 'nullable|array',
+            'sport_ids.*' => 'exists:sports,id',
+            'team_ids' => 'nullable|array',
+            'team_ids.*' => 'exists:teams,id',
+        ]);
+
+        $user = $request->user();
+
+        // Sync sports preferences
+        if ($request->has('sport_ids')) {
+            $user->preferredSports()->sync($request->sport_ids);
+        }
+
+        // Sync teams preferences
+        if ($request->has('team_ids')) {
+            $user->preferredTeams()->sync($request->team_ids);
+        }
+
+        return response()->json([
+            'message' => 'Preferences saved successfully',
+            'sports' => $user->preferredSports()->get(),
+            'teams' => $user->preferredTeams()->get(),
+        ]);
+    }
 }

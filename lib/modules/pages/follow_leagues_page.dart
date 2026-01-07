@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:sports_news_app/modules/pages/follow_players_page.dart';
+import 'package:sports_news_app/modules/pages/follow_teams_page.dart';
 import 'package:sports_news_app/services/api_service.dart';
 
 // League Model
@@ -31,7 +31,8 @@ class League {
 enum SportType { football, basketball, tennis, volleyball }
 
 class FollowLeaguesPage extends StatefulWidget {
-  const FollowLeaguesPage({super.key});
+  final List<int> selectedSportIds;
+  const FollowLeaguesPage({super.key, required this.selectedSportIds});
 
   @override
   State<FollowLeaguesPage> createState() => _FollowLeaguesPageState();
@@ -66,16 +67,18 @@ Future<void> _fetchLeagues() async {
 
 void _onFinish() async {
   try {
-    await ApiService.savePreferences({
-      'league_ids': _selectedLeagueIds.toList(),
-    });
-    // Navigate to home page
-    Navigator.pushReplacementNamed(context, '/home');
+    await ApiService.saveLeaguesPreferences(_selectedLeagueIds.toList());
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Failed to save league preferences')),
     );
   }
+
+  // Navigate to teams selection
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (context) => FollowTeamsPage(selectedLeagueIds: _selectedLeagueIds.toList())),
+  );
 }
   static const Color primaryGreen = Color(0xFF43A047);
   static const Color darkGreen = Color(0xFF2E7D32);
@@ -1103,7 +1106,7 @@ void _onFinish() async {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const FollowPlayersPage(),
+                  builder: (context) => FollowTeamsPage(selectedLeagueIds: _selectedLeagueIds.toList()),
                 ),
               );
             }
@@ -1816,7 +1819,7 @@ void _onFinish() async {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const FollowPlayersPage(),
+                          builder: (context) => FollowTeamsPage(selectedLeagueIds: _selectedLeagueIds.toList()),
                         ),
                       );
                     }

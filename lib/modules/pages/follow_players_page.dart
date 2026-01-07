@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:sports_news_app/services/api_service.dart';
 import 'package:sports_news_app/widget_tree.dart';
 
 // Player Model
@@ -33,7 +36,8 @@ class Player {
 enum SportType { football, basketball, tennis, volleyball }
 
 class FollowPlayersPage extends StatefulWidget {
-  const FollowPlayersPage({super.key});
+  final List<int> selectedTeamIds;
+  const FollowPlayersPage({super.key, required this.selectedTeamIds});
 
   @override
   State<FollowPlayersPage> createState() => _FollowPlayersPageState();
@@ -51,6 +55,7 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
 
   List<Player> _allPlayers = [];
   Set<String> _followedPlayerIds = {};
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -59,8 +64,84 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
     _initializePlayers();
   }
 
-  void _initializePlayers() {
-    _allPlayers = [
+  Future<void> _initializePlayers() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      List<Player> allPlayers = [];
+      
+      // For each selected team, get its players
+      for (int teamId in widget.selectedTeamIds) {
+        try {
+          final playersResponse = await http.get(
+            Uri.parse('${ApiService.baseUrl}/teams/$teamId/players'),
+            headers: await ApiService.headers,
+          );
+
+          if (playersResponse.statusCode == 200) {
+            final playersData = json.decode(playersResponse.body);
+            final players = playersData['data'] ?? [];
+            
+            // Convert API response to Player objects
+            for (var playerData in players) {
+              final player = Player(
+                id: playerData['id'].toString(),
+                name: playerData['name'] ?? '',
+                nationality: playerData['nationality'] ?? '',
+                team: playerData['team_name'] ?? '',
+                sport: _getSportType(playerData['sport']),
+                position: playerData['position'] ?? '',
+                imageEmoji: playerData['image_emoji'] ?? '👤',
+                flagEmoji: playerData['flag_emoji'] ?? '🏳️',
+                jerseyNumber: playerData['jersey_number']?.toString(),
+              );
+              allPlayers.add(player);
+            }
+          }
+        } catch (e) {
+          print('Error fetching players for team $teamId: $e');
+        }
+      }
+
+      // If no players from API, use fallback hardcoded players
+      if (allPlayers.isEmpty) {
+        allPlayers = _getFallbackPlayers();
+      }
+
+      setState(() {
+        _allPlayers = allPlayers;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      print('Error loading players: $e');
+    }
+  }
+
+  SportType _getSportType(String? sportName) {
+    if (sportName == null) return SportType.football;
+    
+    switch (sportName.toLowerCase()) {
+      case 'football':
+      case 'soccer':
+        return SportType.football;
+      case 'basketball':
+        return SportType.basketball;
+      case 'tennis':
+        return SportType.tennis;
+      case 'volleyball':
+        return SportType.volleyball;
+      default:
+        return SportType.football;
+    }
+  }
+
+  List<Player> _getFallbackPlayers() {
+    return [
       // ==================== FOOTBALL PLAYERS (20) ====================
       Player(
         id: 'messi',
@@ -1398,13 +1479,29 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
 
   Widget _buildFinishButton(ColorScheme scheme) {
     return ElevatedButton(
-      onPressed: () {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const WidgetTree()),
-          (route) => false,
-        );
-      },
+      onPressed: _followedPlayerIds.isNotEmpty
+          ? () async {
+              try {
+                // Convert string IDs to int IDs for API
+                final playerIds = _followedPlayerIds
+                    .map((id) => int.tryParse(id) ?? 0)
+                    .where((id) => id > 0)
+                    .toList();
+                
+                await ApiService.savePlayersPreferences(playerIds);
+                
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const WidgetTree()),
+                  (route) => false,
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e')),
+                );
+              }
+            }
+          : null,
       style: ElevatedButton.styleFrom(
         backgroundColor: primaryGreen,
         foregroundColor: Colors.white,

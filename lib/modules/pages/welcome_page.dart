@@ -19,6 +19,10 @@ class _WelcomePageState extends State<WelcomePage>
   static const Color darkGreen = Color(0xFF2E7D32);
   static const Color adminColor = Color(0xFF9C27B0);
 
+  // Admin state variables
+  String? _userRole;
+  String? _adminSportName; // Completely different name
+
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late AnimationController _pulseController;
@@ -316,6 +320,16 @@ class _WelcomePageState extends State<WelcomePage>
         return AdminLoginDialog(
           onLogin: (role, assignedSport) {
             Navigator.pop(context);
+            
+            // Store admin info in state
+            setState(() {
+              _userRole = role;
+              // Extract assigned sport name from user object
+              if (role != 'super_admin' && assignedSport != null) {
+                _adminSportName = assignedSport;
+              }
+            });
+            
             if (role == 'super_admin') {
               Navigator.push(
                 context,
@@ -328,7 +342,8 @@ class _WelcomePageState extends State<WelcomePage>
                 context,
                 MaterialPageRoute(
                   builder: (context) => AdminDashboardPage(
-                    assignedSport: assignedSport ?? 'Football',
+                    userRole: role,
+                    adminSportName: assignedSport,
                   ),
                 ),
               );
@@ -663,8 +678,57 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: () {
-                      widget.onLogin(_selectedRole, _selectedSport);
+                    onPressed: () async {
+                      try {
+                        final result = await ApiService.adminLogin(
+                          email: _emailController.text.trim(),
+                          password: _passwordController.text,
+                        );
+                        
+                        if (mounted) {
+                          Navigator.pop(context);
+                          
+                          // Show success message
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Admin login successful!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          
+                          // Navigate based on role
+                          final role = result['role'];
+                          final assignedSport = result['user']?['assigned_sport']?['name'] as String?;
+                          
+                          if (role == 'super_admin') {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SuperAdminDashboardPage(),
+                              ),
+                            );
+                          } else {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AdminDashboardPage(
+                                  userRole: role,
+                                  adminSportName: assignedSport,
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Login failed: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF9C27B0),
@@ -1321,9 +1385,8 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   void _showEditSportDialog(Map<String, dynamic> sport) {
     showDialog(
       context: context,
-      builder: (context) => EditSportDialog(
-        sport: sport,
-        onUpdate: (sportData) {
+      builder: (context) => AddSportDialog(
+        onAdd: (sportData) async {
           print('Updating sport: $sportData');
           Navigator.pop(context);
         },
@@ -1359,9 +1422,10 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
 
 // ==================== ADMIN DASHBOARD PAGE (Regular Admin) ====================
 class AdminDashboardPage extends StatefulWidget {
-  final String assignedSport;
-
-  const AdminDashboardPage({super.key, required this.assignedSport});
+  final String? userRole;
+  final String? adminSportName; // Updated variable name
+  
+  const AdminDashboardPage({super.key, this.userRole, this.adminSportName});
 
   @override
   State<AdminDashboardPage> createState() => _AdminDashboardPageState();
@@ -1370,6 +1434,19 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   int _selectedTab = 0;
   final Color _adminColor = const Color(0xFF9C27B0);
+
+  // Admin state variables - initialize from widget
+  String? _userRole;
+  String? _adminSportName;
+  String? _selectedSport;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize admin info from widget
+    _userRole = widget.userRole;
+    _adminSportName = widget.adminSportName;
+  }
 
   // Create Tab State
   final _createFormKey = GlobalKey<FormState>();
@@ -1415,86 +1492,95 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       'author': 'Admin Sarah',
     },
   ];
+@override
+Widget build(BuildContext context) {
+  final myPosts = _mockPosts;
 
-  @override
-  Widget build(BuildContext context) {
-    final myPosts = _mockPosts
-        .where((post) => post['sport'] == widget.assignedSport)
-        .toList();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: _adminColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.admin_panel_settings,
-                color: Colors.white,
-                size: 24,
-              ),
+  return Scaffold(
+    appBar: AppBar(
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: _adminColor,
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Admin Dashboard',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  widget.assignedSport,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
+            child: const Icon(
+              Icons.admin_panel_settings,
+              color: Colors.white,
+              size: 24,
             ),
-          ],
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: _adminColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.admin_panel_settings,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Admin Dashboard',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          icon: const Icon(Icons.logout),
         ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-      body: _buildTabContent(myPosts),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedTab,
-        onTap: (index) {
-          setState(() {
-            _selectedTab = index;
-          });
-        },
-        selectedItemColor: _adminColor,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: 'Posts'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle),
-            label: 'Create',
-          ),
-        ],
-      ),
-      floatingActionButton: _selectedTab == 1
-          ? FloatingActionButton(
-              backgroundColor: _adminColor,
-              onPressed: () => _showCreatePostDialog(),
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
-    );
-  }
+      ],
+    ),
+    body: _buildTabContent(myPosts),
+    bottomNavigationBar: BottomNavigationBar(
+      currentIndex: _selectedTab,
+      onTap: (index) {
+        setState(() {
+          _selectedTab = index;
+        });
+      },
+      selectedItemColor: _adminColor,
+      unselectedItemColor: Colors.grey,
+      type: BottomNavigationBarType.fixed,
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.dashboard),
+          label: 'Dashboard',
+        ),
+        BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: 'Posts'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.add_circle),
+          label: 'Create',
+        ),
+      ],
+    ),
+    floatingActionButton: _selectedTab == 1
+        ? FloatingActionButton(
+            backgroundColor: _adminColor,
+            onPressed: () => _showCreatePostDialog(),
+            child: const Icon(Icons.add, color: Colors.white),
+          )
+        : null,
+  );
+}
 
   Widget _buildTabContent(List<Map<String, dynamic>> myPosts) {
     switch (_selectedTab) {
@@ -1525,7 +1611,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'You can manage posts for ${widget.assignedSport}',
+            'You can manage posts for All Sports',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -1621,7 +1707,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Create your first post for ${widget.assignedSport}',
+                      "Create your first post for 'All Sports'",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1667,7 +1753,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Create your first post for ${widget.assignedSport}',
+              "Create your first post for 'All Sports'",
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1705,7 +1791,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Create a new post for ${widget.assignedSport}',
+              "Create a new post for 'All Sports'",
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1850,7 +1936,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       setState(() => _isCreateLoading = true);
       try {
         int sportId;
-        switch (widget.assignedSport.toLowerCase()) {
+        // Use the selected sport from admin login, not hardcoded
+        final selectedSport = _userRole == 'super_admin' ? _selectedSport : _adminSportName;
+        switch (selectedSport?.toLowerCase()) {
           case 'football':
             sportId = 1;
             break;
@@ -1906,7 +1994,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         leading: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: _getSportColor(post['sport']!).withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
@@ -2061,11 +2149,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     showDialog(
       context: context,
       builder: (context) => CreatePostDialog(
-        assignedSport: widget.assignedSport,
         onPost: (postData) async {
           try {
             int sportId;
-            switch (widget.assignedSport.toLowerCase()) {
+            switch ('football'.toLowerCase()) {
               case 'football':
                 sportId = 1;
                 break;
@@ -2704,12 +2791,10 @@ class _EditSportDialogState extends State<EditSportDialog> {
 }
 
 class CreatePostDialog extends StatefulWidget {
-  final String assignedSport;
   final Future<void> Function(Map<String, dynamic>) onPost;
 
   const CreatePostDialog({
     super.key,
-    required this.assignedSport,
     required this.onPost,
   });
 
@@ -2830,11 +2915,11 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                       children: [
                         Icon(
                           Icons.sports,
-                          color: _getSportColor(widget.assignedSport),
+                          color: _getSportColor('Football'),
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          'Sport: ${widget.assignedSport}',
+                          "Sport: 'All Sports'",
                           style: const TextStyle(fontSize: 16),
                         ),
                       ],
@@ -2909,7 +2994,6 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                                       await widget.onPost({
                                         'title': _titleController.text,
                                         'body': _bodyController.text,
-                                        // 'sport': widget.assignedSport, // Handled by parent using assignedSport
                                         'image_path': _selectedImage?.path,
                                       });
                                       // Dialog closed by parent on success or we can close it here if parent doesn't

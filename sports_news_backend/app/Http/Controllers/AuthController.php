@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -103,6 +105,45 @@ class AuthController extends Controller
         // Implement password reset
         return response()->json([
             'message' => 'Password reset successful'
+        ]);
+    }
+
+    public function adminLogin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
+        // Check if user is admin or super admin
+        if (!$user->isAdmin() && !$user->isSuperAdmin()) {
+            return response()->json([
+                'message' => 'Access denied. Admins only.'
+            ], 403);
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Admin login successful',
+            'user' => new UserResource($user),
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'role' => $user->role,
         ]);
     }
 }

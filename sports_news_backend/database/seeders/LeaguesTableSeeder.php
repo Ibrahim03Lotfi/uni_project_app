@@ -12,6 +12,7 @@ class LeaguesTableSeeder extends Seeder
         $football = Sport::where('name', 'Football')->first();
         $basketball = Sport::where('name', 'Basketball')->first();
         $tennis = Sport::where('name', 'Tennis')->first();
+        $volleyball = Sport::where('name', 'Volleyball')->first();
 
         $leagues = [
             // Football Leagues
@@ -48,6 +49,15 @@ class LeaguesTableSeeder extends Seeder
                 'logo_emoji' => '🎾',
                 'season' => '2024',
                 'confederation' => 'ITF',
+            ],
+            // Volleyball Leagues
+            [
+                'name' => 'FIVB World Tour',
+                'country' => 'International',
+                'sport_id' => $volleyball->id,
+                'logo_emoji' => '🏐',
+                'season' => '2024',
+                'confederation' => 'FIVB',
             ],
         ];
 

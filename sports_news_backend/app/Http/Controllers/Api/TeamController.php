@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\League;
 use App\Models\Team;
+use App\Http\Resources\TeamResource;
 use Illuminate\Http\JsonResponse;
 
 class TeamController extends Controller
@@ -14,10 +15,7 @@ class TeamController extends Controller
         try {
             $league = League::with('teams')->findOrFail($leagueId);
             
-            return response()->json([
-                'status' => 'success',
-                'data' => $league->teams
-            ]);
+            return TeamResource::collection($league->teams);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',

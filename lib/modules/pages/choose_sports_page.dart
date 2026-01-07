@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sports_news_app/modules/pages/follow_leagues_page.dart';
 import 'package:sports_news_app/modules/pages/follow_teams_page.dart';
 import 'package:sports_news_app/services/api_service.dart';
 
@@ -33,17 +34,30 @@ class Sport {
     }
 
     // Map icon string to IconData
-    IconData? parseIcon(String? iconName) {
-      if (iconName == null) return null;
-      // You'll need to create a mapping from your API's icon names to Flutter's IconData
-      // This is a simplified example
+    IconData? parseIcon(dynamic iconData) {
+      if (iconData == null) return null;
+      
+      // If it's a URL, extract the icon name from the path
+      String iconName;
+      if (iconData is String && iconData.contains('/')) {
+        // Extract from URL like "http://localhost:8000/sports_soccer"
+        iconName = iconData.split('/').last;
+      } else {
+        iconName = iconData.toString();
+      }
+      
+      // Map icon names to Flutter icons
       Map<String, IconData> iconMap = {
         'sports_soccer': Icons.sports_soccer,
         'sports_basketball': Icons.sports_basketball,
         'sports_tennis': Icons.sports_tennis,
         'sports_volleyball': Icons.sports_volleyball,
+        'football': Icons.sports_soccer,
+        'basketball': Icons.sports_basketball,
+        'tennis': Icons.sports_tennis,
+        'volleyball': Icons.sports_volleyball,
       };
-      return iconMap[iconName];
+      return iconMap[iconName] ?? Icons.sports;
     }
 
     return Sport(
@@ -218,14 +232,19 @@ class _ChooseSportsPageState extends State<ChooseSportsPage>
 
   void _onContinue() async {
     try {
-      await ApiService.savePreferences({
-        'sport_ids': _selectedSportIds.toList(),
-      });
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => FollowTeamsPage(selectedSportIds: _selectedSportIds.toList()),
+      await ApiService.saveSportsPreferences(_selectedSportIds.toList());
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sports preferences saved!'),
+          backgroundColor: primaryGreen,
         ),
+      );
+
+      // Navigate to leagues selection
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => FollowLeaguesPage(selectedSportIds: _selectedSportIds.toList())),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1366,7 +1385,7 @@ class _ChooseSportsPageState extends State<ChooseSportsPage>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const FollowTeamsPage(selectedSportIds: [],),
+                                builder: (context) => FollowLeaguesPage(selectedSportIds: _selectedSportIds.toList()),
                               ),
                             );
                           } catch (e) {
