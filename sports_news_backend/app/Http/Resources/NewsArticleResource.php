@@ -19,7 +19,7 @@ class NewsArticleResource extends JsonResource
             'title' => $this->title,
             'description' => $this->description,
             'content' => $this->content,
-            'image_url' => $this->image_url ? url($this->image_url) : null,
+            'image_url' => $this->image_url ? (filter_var($this->image_url, FILTER_VALIDATE_URL) ? $this->image_url : asset('storage/' . $this->image_url)) : null,
             'category' => $this->category,
             'published_at' => $this->published_at,
             'created_at' => $this->created_at,
@@ -39,12 +39,14 @@ class NewsArticleResource extends JsonResource
                 'color' => $this->sport->color,
                 'emoji' => $this->sport->emoji,
             ],
-            'team' => $this->when($this->team, [
-                'id' => $this->team->id,
-                'name' => $this->team->name,
-                'logo_url' => $this->team->logo_url ? url($this->team->logo_url) : null,
-                'country' => $this->team->country,
-            ]),
+            'team' => $this->when($this->team, function () {
+                return [
+                    'id' => $this->team->id,
+                    'name' => $this->team->name,
+                    'logo_url' => $this->team->logo_url ? (filter_var($this->team->logo_url, FILTER_VALIDATE_URL) ? $this->team->logo_url : asset('storage/' . $this->team->logo_url)) : null,
+                    'country' => $this->team->country,
+                ];
+            }),
         ];
     }
 }

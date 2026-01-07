@@ -26,14 +26,49 @@ class AdminUserSeeder extends Seeder
         );
 
         // Create a regular Admin assigned to Football (ID: 1)
-        // Ensure Sport with ID 1 exists (SportsSeeder must run first)
         User::updateOrCreate(
             ['email' => 'football_admin@app.com'],
             [
                 'name' => 'Football Admin',
                 'password' => Hash::make('password'),
                 'role' => \App\UserRole::ADMIN->value,
-                'assigned_sport_id' => 1, // Assuming ID 1 is Football
+                'assigned_sport_id' => 1,
+                'email_verified_at' => now(),
+            ]
+        );
+
+        // Basketball Admin (ID: 2)
+        User::updateOrCreate(
+            ['email' => 'basketball_admin@app.com'],
+            [
+                'name' => 'Basketball Admin',
+                'password' => Hash::make('password'),
+                'role' => \App\UserRole::ADMIN->value,
+                'assigned_sport_id' => 2,
+                'email_verified_at' => now(),
+            ]
+        );
+
+        // Tennis Admin (ID: 3)
+        User::updateOrCreate(
+            ['email' => 'tennis_admin@app.com'],
+            [
+                'name' => 'Tennis Admin',
+                'password' => Hash::make('password'),
+                'role' => \App\UserRole::ADMIN->value,
+                'assigned_sport_id' => 3,
+                'email_verified_at' => now(),
+            ]
+        );
+
+        // Volleyball Admin (ID: 4)
+        User::updateOrCreate(
+            ['email' => 'volleyball_admin@app.com'],
+            [
+                'name' => 'Volleyball Admin',
+                'password' => Hash::make('password'),
+                'role' => \App\UserRole::ADMIN->value,
+                'assigned_sport_id' => 4,
                 'email_verified_at' => now(),
             ]
         );

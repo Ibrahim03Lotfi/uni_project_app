@@ -10,11 +10,11 @@ use Illuminate\Http\JsonResponse;
 
 class TeamController extends Controller
 {
-    public function index($leagueId): JsonResponse
+    public function index($leagueId)
     {
         try {
             $league = League::with('teams')->findOrFail($leagueId);
-            
+
             return TeamResource::collection($league->teams);
         } catch (\Exception $e) {
             return response()->json([

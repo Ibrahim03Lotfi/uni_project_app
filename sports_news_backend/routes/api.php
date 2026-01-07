@@ -25,13 +25,14 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/sports', [SportController::class, 'index']);
 Route::get('/sports/{sport}/leagues', [LeagueController::class, 'index']);
 Route::get('/leagues/{league}/teams', [TeamController::class, 'index']);
-Route::get('/teams/{team}/players', [PlayerController::class, 'index']);
+// Route::get('/teams/{team}/players', [PlayerController::class, 'index']);
 
 // Protected routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
+    Route::put('/user', [AuthController::class, 'updateProfile']);
 
     // Preferences routes
     Route::prefix('preferences')->group(function () {
@@ -39,7 +40,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/sports', [UserPreferenceController::class, 'updateSports']);
         Route::post('/teams', [UserPreferenceController::class, 'updateTeams']);
         Route::post('/leagues', [UserPreferenceController::class, 'updateLeagues']);
-        Route::post('/players', [UserPreferenceController::class, 'updatePlayers']);
         Route::post('/', [UserPreferenceController::class, 'saveAll']); // Save all preferences at once
     });
 

@@ -68,12 +68,12 @@ class NewsArticleController extends Controller
 
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
-            'description' => 'required|string',
+            'description' => 'sometimes|string',
             'content' => 'required|string',
-            'sport_id' => 'required|exists:sports,id',
+            'sport_id' => 'sometimes|exists:sports,id',
             'team_id' => 'nullable|exists:teams,id', // Optional: link to specific team
             'image' => 'nullable|image|max:2048', // Max 2MB
-            'category' => 'required|string',
+            'category' => 'sometimes|string',
         ]);
 
         if ($validator->fails()) {
@@ -94,11 +94,11 @@ class NewsArticleController extends Controller
 
         $article = NewsArticle::create([
             'title' => $request->title,
-            'description' => $request->description, // Or extract excerpt from content
+            'description' => $request->description ?? $request->content,
             'content' => $request->content,
-            'image_url' => $path ? asset('storage/' . $path) : null,
-            'category' => $request->category,
-            'sport_id' => $request->sport_id,
+            'image_url' => $path,
+            'category' => $request->category ?? 'General',
+            'sport_id' => $request->sport_id ?? 1,
             'team_id' => $request->team_id,
             'author_id' => $user->id,
             'published_at' => now(),

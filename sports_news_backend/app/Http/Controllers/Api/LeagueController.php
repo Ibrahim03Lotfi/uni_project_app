@@ -14,7 +14,7 @@ class LeagueController extends Controller
         try {
             $sport = Sport::findOrFail($sportId);
             $leagues = $sport->leagues()->get();
-            
+
             return response()->json([
                 'status' => 'success',
                 'data' => $leagues

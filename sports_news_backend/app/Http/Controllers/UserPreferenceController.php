@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Models\Sport;
 use App\Models\Team;
 use App\Models\League;
-use App\Models\Player;
 use Illuminate\Http\Request;
 
 class UserPreferenceController extends Controller
@@ -15,12 +14,11 @@ class UserPreferenceController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        
+
         return response()->json([
             'sports' => $user->preferredSports()->get(),
             'teams' => $user->preferredTeams()->get(),
             'leagues' => $user->preferredLeagues()->get(),
-            'players' => $user->preferredPlayers()->get(),
         ]);
     }
 
@@ -71,24 +69,6 @@ class UserPreferenceController extends Controller
 
         return response()->json([
             'message' => 'Leagues preferences updated successfully',
-            'leagues' => $user->preferredLeagues()->get(),
-        ]);
-    }
-
-    // Update players preferences
-    public function updatePlayers(Request $request)
-    {
-        $request->validate([
-            'player_ids' => 'required|array',
-            'player_ids.*' => 'exists:players,id',
-        ]);
-
-        $user = $request->user();
-        $user->preferredPlayers()->sync($request->player_ids);
-
-        return response()->json([
-            'message' => 'Players preferences updated successfully',
-            'players' => $user->preferredPlayers()->get(),
         ]);
     }
 
