@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sports_news_app/data/notifiers.dart';
+import 'package:sports_news_app/services/api_service.dart';
+import 'package:sports_news_app/modules/pages/welcome_page.dart';
 
 class MorePage extends StatefulWidget {
   const MorePage({super.key});
@@ -13,10 +15,12 @@ class _MorePageState extends State<MorePage> {
   static const Color lightGreen = Color(0xFF81C784);
 
   // User data
-  String _userName = "John Smith";
-  String _userEmail = "john.smith@example.com";
-  String _userPhone = "+1 (555) 123-4567";
-  String _userBio = "Sports enthusiast | Football fan | NBA lover";
+  String _userName = "Loading...";
+  String _userEmail = "Loading...";
+  String _userPhone = "Not provided";
+  String _userBio = "Sports enthusiast";
+  String _userRole = "user";
+  bool _isLoadingUserData = true;
 
   // Settings
   bool _notificationsEnabled = true;
@@ -55,6 +59,35 @@ class _MorePageState extends State<MorePage> {
       });
     };
     isDarkModeNotifier.addListener(_darkModeListener);
+    
+    _loadUserData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload user data when page is revisited
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final userData = await ApiService.getUser();
+      setState(() {
+        _userName = userData['name'] ?? 'User';
+        _userEmail = userData['email'] ?? 'No email';
+        _userPhone = userData['phone'] ?? 'Not provided';
+        _userBio = userData['bio'] ?? 'Sports enthusiast';
+        _userRole = userData['role'] ?? 'user';
+        _isLoadingUserData = false;
+      });
+    } catch (e) {
+      setState(() {
+        _userName = 'Error loading data';
+        _userEmail = 'Error';
+        _isLoadingUserData = false;
+      });
+    }
   }
 
   @override
@@ -125,6 +158,27 @@ class _MorePageState extends State<MorePage> {
   }
 
   Widget _buildProfileSection() {
+    if (_isLoadingUserData) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(40),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
@@ -170,15 +224,36 @@ class _MorePageState extends State<MorePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _userName,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Text(
+                            _userName,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(width: 8),
+                          if (_userRole != 'user')
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _userRole == 'super_admin' ? Colors.purple : Colors.orange,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _userRole == 'super_admin' ? 'Super Admin' : 'Admin',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -1074,11 +1149,20 @@ class _MorePageState extends State<MorePage> {
     );
   }
 
-  void _performLogout() {
-    // Perform logout logic here
-    _showSuccessSnackbar('Logged out successfully');
-    // Navigate to login screen or home
-    // Navigator.pushReplacementNamed(context, '/login');
+  void _performLogout() async {
+    try {
+      await ApiService.logout();
+      _showSuccessSnackbar('Logged out successfully');
+      
+      // Navigate to welcome page
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const WelcomePage()),
+        (route) => false,
+      );
+    } catch (e) {
+      _showErrorSnackbar('Logout failed: $e');
+    }
   }
 
   void _showSuccessSnackbar(String message) {

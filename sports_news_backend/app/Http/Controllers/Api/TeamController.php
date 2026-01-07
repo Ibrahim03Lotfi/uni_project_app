@@ -23,4 +23,21 @@ class TeamController extends Controller
             ], 500);
         }
     }
+    
+    public function all(): JsonResponse
+    {
+        try {
+            $teams = Team::with(['league', 'sport'])->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $teams
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

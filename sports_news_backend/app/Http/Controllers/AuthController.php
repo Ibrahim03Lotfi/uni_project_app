@@ -89,7 +89,15 @@ class AuthController extends Controller
 
     public function user(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user()->load([
+            'preferredSports',
+            'preferredLeagues.sport',
+            'preferredTeams.league.sport',
+            'preferredPlayers.team.sport',
+            'assignedSport'
+        ]);
+        
+        return response()->json(new UserResource($user));
     }
 
     public function updateProfile(Request $request)

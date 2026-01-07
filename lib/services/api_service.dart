@@ -134,6 +134,7 @@ class ApiService {
 
   // Save selected teams
   static Future<void> saveTeamsPreferences(List<int> teamIds) async {
+    print('API: saveTeamsPreferences called with IDs: $teamIds');
     final url = Uri.parse('$baseUrl/preferences/teams');
     final response = await http.post(
       url,
@@ -141,27 +142,17 @@ class ApiService {
       body: json.encode({'team_ids': teamIds}),
     );
 
+    print('API: saveTeamsPreferences response status: ${response.statusCode}');
+    print('API: saveTeamsPreferences response body: ${response.body}');
+
     if (response.statusCode != 200) {
       throw Exception('Failed to save teams preferences');
     }
   }
 
-  // Save selected leagues
-  static Future<void> saveLeaguesPreferences(List<int> leagueIds) async {
-    final url = Uri.parse('$baseUrl/preferences/leagues');
-    final response = await http.post(
-      url,
-      headers: await headers,
-      body: json.encode({'league_ids': leagueIds}),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to save leagues preferences');
-    }
-  }
-
   // Save selected players
   static Future<void> savePlayersPreferences(List<int> playerIds) async {
+    print('API: savePlayersPreferences called with IDs: $playerIds');
     final url = Uri.parse('$baseUrl/preferences/players');
     final response = await http.post(
       url,
@@ -169,8 +160,29 @@ class ApiService {
       body: json.encode({'player_ids': playerIds}),
     );
 
+    print('API: savePlayersPreferences response status: ${response.statusCode}');
+    print('API: savePlayersPreferences response body: ${response.body}');
+
     if (response.statusCode != 200) {
       throw Exception('Failed to save players preferences');
+    }
+  }
+
+  // Save selected leagues
+  static Future<void> saveLeaguesPreferences(List<int> leagueIds) async {
+    print('API: saveLeaguesPreferences called with IDs: $leagueIds');
+    final url = Uri.parse('$baseUrl/preferences/leagues');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({'league_ids': leagueIds}),
+    );
+
+    print('API: saveLeaguesPreferences response status: ${response.statusCode}');
+    print('API: saveLeaguesPreferences response body: ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to save leagues preferences');
     }
   }
 
@@ -406,6 +418,134 @@ class ApiService {
       return data['data'] ?? []; // Extract data array from response
     } else {
       throw Exception('Failed to load sports for assignment');
+    }
+  }
+
+  // Get all leagues for recommendations
+  static Future<List<dynamic>> getAllLeagues() async {
+    final url = Uri.parse('$baseUrl/leagues');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['data'] ?? [];
+    } else {
+      throw Exception('Failed to load all leagues');
+    }
+  }
+
+  // Get all teams for recommendations
+  static Future<List<dynamic>> getAllTeams() async {
+    final url = Uri.parse('$baseUrl/teams');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['data'] ?? [];
+    } else {
+      throw Exception('Failed to load all teams');
+    }
+  }
+
+  // Get all players for recommendations
+  static Future<List<dynamic>> getAllPlayers() async {
+    final url = Uri.parse('$baseUrl/players');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['data'] ?? [];
+    } else {
+      throw Exception('Failed to load all players');
+    }
+  }
+
+  // Follow/Unfollow methods
+  static Future<void> followSport(int sportId) async {
+    final url = Uri.parse('$baseUrl/user/preferences/sports');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({'sport_ids': [sportId]}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to follow sport');
+    }
+  }
+
+  static Future<void> unfollowSport(int sportId) async {
+    final url = Uri.parse('$baseUrl/user/preferences/sports/$sportId');
+    final response = await http.delete(url, headers: await headers);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to unfollow sport');
+    }
+  }
+
+  static Future<void> followLeague(int leagueId) async {
+    final url = Uri.parse('$baseUrl/user/preferences/leagues');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({'league_ids': [leagueId]}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to follow league');
+    }
+  }
+
+  static Future<void> unfollowLeague(int leagueId) async {
+    final url = Uri.parse('$baseUrl/user/preferences/leagues/$leagueId');
+    final response = await http.delete(url, headers: await headers);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to unfollow league');
+    }
+  }
+
+  static Future<void> followTeam(int teamId) async {
+    final url = Uri.parse('$baseUrl/user/preferences/teams');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({'team_ids': [teamId]}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to follow team');
+    }
+  }
+
+  static Future<void> unfollowTeam(int teamId) async {
+    final url = Uri.parse('$baseUrl/user/preferences/teams/$teamId');
+    final response = await http.delete(url, headers: await headers);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to unfollow team');
+    }
+  }
+
+  static Future<void> followPlayer(int playerId) async {
+    final url = Uri.parse('$baseUrl/user/preferences/players');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({'player_ids': [playerId]}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to follow player');
+    }
+  }
+
+  static Future<void> unfollowPlayer(int playerId) async {
+    final url = Uri.parse('$baseUrl/user/preferences/players/$playerId');
+    final response = await http.delete(url, headers: await headers);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to unfollow player');
     }
   }
 }
