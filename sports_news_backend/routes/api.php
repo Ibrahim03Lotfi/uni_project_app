@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\SportController;
 use App\Http\Controllers\Api\LeagueController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\NewsArticleController;
+use App\Http\Controllers\Api\GameMatchController;
 use App\Http\Controllers\Api\AdminManagementController;
 
 Route::get('/test', function () {
@@ -25,6 +26,7 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/sports', [SportController::class, 'index']);
 Route::get('/sports/{sport}/leagues', [LeagueController::class, 'index']);
 Route::get('/leagues/{league}/teams', [TeamController::class, 'index']);
+Route::get('/matches', [GameMatchController::class, 'index']);
 // Route::get('/teams/{team}/players', [PlayerController::class, 'index']);
 
 // Protected routes (require authentication)
@@ -47,6 +49,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/feed', [NewsArticleController::class, 'index']); // User News Feed
     Route::get('/posts/search', [NewsArticleController::class, 'search']); // Search
     Route::post('/posts', [NewsArticleController::class, 'store'])->middleware('role:admin'); // Create News - Admin only
+    Route::post('/matches', [GameMatchController::class, 'store'])->middleware('role:admin'); // Create Match - Admin only
+    Route::put('/matches/{match}', [GameMatchController::class, 'update'])->middleware('role:admin'); // Update Match - Admin only
+    Route::patch('/matches/{match}', [GameMatchController::class, 'update'])->middleware('role:admin'); // Update Match - Admin only
+    Route::delete('/matches/{match}', [GameMatchController::class, 'destroy'])->middleware('role:admin'); // Delete Match - Admin only
     Route::post('/posts/{id}/like', [NewsArticleController::class, 'toggleLike']); // Toggle like
 
     // Super Admin only routes
