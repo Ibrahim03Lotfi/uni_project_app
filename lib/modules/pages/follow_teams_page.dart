@@ -7,6 +7,7 @@ import 'package:sports_news_app/modules/pages/follow_leagues_page.dart';
 
 // Keep your existing enums and Team model
 enum SportType { football, basketball, tennis, volleyball }
+
 enum TeamType { club, national }
 
 class Team {
@@ -78,7 +79,7 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
 
     try {
       List<dynamic> allTeams = [];
-      
+
       // For each selected league, get its teams
       for (int leagueId in widget.selectedLeagueIds) {
         try {
@@ -117,27 +118,135 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
   List<dynamic> _getFallbackTeams() {
     return [
       // Football Teams
-      {'id': 1, 'name': 'Arsenal', 'sport': 'football', 'league': 'Premier League', 'logo_emoji': '⚽'},
-      {'id': 2, 'name': 'Manchester United', 'sport': 'football', 'league': 'Premier League', 'logo_emoji': '⚽'},
-      {'id': 3, 'name': 'Liverpool', 'sport': 'football', 'league': 'Premier League', 'logo_emoji': '⚽'},
-      {'id': 4, 'name': 'Chelsea', 'sport': 'football', 'league': 'Premier League', 'logo_emoji': '⚽'},
-      {'id': 5, 'name': 'Real Madrid', 'sport': 'football', 'league': 'La Liga', 'logo_emoji': '⚽'},
-      {'id': 6, 'name': 'Barcelona', 'sport': 'football', 'league': 'La Liga', 'logo_emoji': '⚽'},
+      {
+        'id': 1,
+        'name': 'Arsenal',
+        'sport': 'football',
+        'league': 'Premier League',
+        'logo_emoji': '⚽',
+      },
+      {
+        'id': 2,
+        'name': 'Manchester United',
+        'sport': 'football',
+        'league': 'Premier League',
+        'logo_emoji': '⚽',
+      },
+      {
+        'id': 3,
+        'name': 'Liverpool',
+        'sport': 'football',
+        'league': 'Premier League',
+        'logo_emoji': '⚽',
+      },
+      {
+        'id': 4,
+        'name': 'Chelsea',
+        'sport': 'football',
+        'league': 'Premier League',
+        'logo_emoji': '⚽',
+      },
+      {
+        'id': 5,
+        'name': 'Real Madrid',
+        'sport': 'football',
+        'league': 'La Liga',
+        'logo_emoji': '⚽',
+      },
+      {
+        'id': 6,
+        'name': 'Barcelona',
+        'sport': 'football',
+        'league': 'La Liga',
+        'logo_emoji': '⚽',
+      },
       // Basketball Teams
-      {'id': 7, 'name': 'Los Angeles Lakers', 'sport': 'basketball', 'league': 'NBA', 'logo_emoji': '🏀'},
-      {'id': 8, 'name': 'Boston Celtics', 'sport': 'basketball', 'league': 'NBA', 'logo_emoji': '🏀'},
-      {'id': 9, 'name': 'Golden State Warriors', 'sport': 'basketball', 'league': 'NBA', 'logo_emoji': '🏀'},
-      {'id': 10, 'name': 'Miami Heat', 'sport': 'basketball', 'league': 'NBA', 'logo_emoji': '🏀'},
+      {
+        'id': 7,
+        'name': 'Los Angeles Lakers',
+        'sport': 'basketball',
+        'league': 'NBA',
+        'logo_emoji': '🏀',
+      },
+      {
+        'id': 8,
+        'name': 'Boston Celtics',
+        'sport': 'basketball',
+        'league': 'NBA',
+        'logo_emoji': '🏀',
+      },
+      {
+        'id': 9,
+        'name': 'Golden State Warriors',
+        'sport': 'basketball',
+        'league': 'NBA',
+        'logo_emoji': '🏀',
+      },
+      {
+        'id': 10,
+        'name': 'Miami Heat',
+        'sport': 'basketball',
+        'league': 'NBA',
+        'logo_emoji': '🏀',
+      },
       // Tennis Players
-      {'id': 11, 'name': 'Novak Djokovic', 'sport': 'tennis', 'league': 'ATP Tour', 'logo_emoji': '🎾'},
-      {'id': 12, 'name': 'Rafael Nadal', 'sport': 'tennis', 'league': 'ATP Tour', 'logo_emoji': '🎾'},
-      {'id': 13, 'name': 'Roger Federer', 'sport': 'tennis', 'league': 'ATP Tour', 'logo_emoji': '🎾'},
-      {'id': 14, 'name': 'Carlos Alcaraz', 'sport': 'tennis', 'league': 'ATP Tour', 'logo_emoji': '🎾'},
+      {
+        'id': 11,
+        'name': 'Novak Djokovic',
+        'sport': 'tennis',
+        'league': 'ATP Tour',
+        'logo_emoji': '🎾',
+      },
+      {
+        'id': 12,
+        'name': 'Rafael Nadal',
+        'sport': 'tennis',
+        'league': 'ATP Tour',
+        'logo_emoji': '🎾',
+      },
+      {
+        'id': 13,
+        'name': 'Roger Federer',
+        'sport': 'tennis',
+        'league': 'ATP Tour',
+        'logo_emoji': '🎾',
+      },
+      {
+        'id': 14,
+        'name': 'Carlos Alcaraz',
+        'sport': 'tennis',
+        'league': 'ATP Tour',
+        'logo_emoji': '🎾',
+      },
       // Volleyball Teams
-      {'id': 15, 'name': 'Brazil National Team', 'sport': 'volleyball', 'league': 'FIVB World Tour', 'logo_emoji': '🏐'},
-      {'id': 16, 'name': 'Italy National Team', 'sport': 'volleyball', 'league': 'FIVB World Tour', 'logo_emoji': '🏐'},
-      {'id': 17, 'name': 'USA National Team', 'sport': 'volleyball', 'league': 'FIVB World Tour', 'logo_emoji': '🏐'},
-      {'id': 18, 'name': 'Russia National Team', 'sport': 'volleyball', 'league': 'FIVB World Tour', 'logo_emoji': '🏐'},
+      {
+        'id': 15,
+        'name': 'Brazil National Team',
+        'sport': 'volleyball',
+        'league': 'FIVB World Tour',
+        'logo_emoji': '🏐',
+      },
+      {
+        'id': 16,
+        'name': 'Italy National Team',
+        'sport': 'volleyball',
+        'league': 'FIVB World Tour',
+        'logo_emoji': '🏐',
+      },
+      {
+        'id': 17,
+        'name': 'USA National Team',
+        'sport': 'volleyball',
+        'league': 'FIVB World Tour',
+        'logo_emoji': '🏐',
+      },
+      {
+        'id': 18,
+        'name': 'Russia National Team',
+        'sport': 'volleyball',
+        'league': 'FIVB World Tour',
+        'logo_emoji': '🏐',
+      },
     ];
   }
 
@@ -156,12 +265,13 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
 
     try {
       await ApiService.saveTeamsPreferences(_selectedTeamIds.toList());
-      
+
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => FollowPlayersPage(selectedTeamIds: _selectedTeamIds.toList()),
+            builder: (context) =>
+                FollowPlayersPage(selectedTeamIds: _selectedTeamIds.toList()),
           ),
         );
       }
@@ -231,10 +341,7 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
                     if (team['league'] != null)
                       Text(
                         team['league']!,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
                       ),
                   ],
                 ),
@@ -273,10 +380,7 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
       return Center(
         child: Text(
           'No teams found',
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 16,
-          ),
+          style: TextStyle(color: Colors.grey[600], fontSize: 16),
         ),
       );
     }
@@ -297,10 +401,10 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
         final league = team['league']?.toString().toLowerCase() ?? '';
         return name.contains(_searchQuery) || league.contains(_searchQuery);
       }
-      
+
       // Get sport name from team data
       final teamSport = (team['sport']?.toString().toLowerCase() ?? '');
-      
+
       // Map sport type to expected sport name
       switch (sportType) {
         case SportType.football:
@@ -320,10 +424,7 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
       return Center(
         child: Text(
           'No teams found',
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 16,
-          ),
+          style: TextStyle(color: Colors.grey[600], fontSize: 16),
         ),
       );
     }
@@ -422,41 +523,41 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _errorMessage.isNotEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              _errorMessage,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _fetchTeams,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryGreen,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text('Retry'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _errorMessage,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
                         ),
-                      )
-                    : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          // All Teams Tab
-                          _buildAllTeamsTab(),
-                          // Sport-specific tabs
-                          _buildSportTab(SportType.football),
-                          _buildSportTab(SportType.basketball),
-                          _buildSportTab(SportType.tennis),
-                          _buildSportTab(SportType.volleyball),
-                        ],
-                      ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _fetchTeams,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryGreen,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // All Teams Tab
+                      _buildAllTeamsTab(),
+                      // Sport-specific tabs
+                      _buildSportTab(SportType.football),
+                      _buildSportTab(SportType.basketball),
+                      _buildSportTab(SportType.tennis),
+                      _buildSportTab(SportType.volleyball),
+                    ],
+                  ),
           ),
           // Continue Button
           Container(
@@ -479,7 +580,8 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => FollowLeaguesPage(selectedSportIds: []),
+                        builder: (context) =>
+                            FollowLeaguesPage(selectedSportIds: []),
                       ),
                     );
                   },
@@ -494,8 +596,7 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
                 const Spacer(),
                 // Continue Button
                 ElevatedButton(
-                  onPressed:
-                      _selectedTeamIds.isNotEmpty ? _onContinue : null,
+                  onPressed: _selectedTeamIds.isNotEmpty ? _onContinue : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryGreen,
                     foregroundColor: Colors.white,

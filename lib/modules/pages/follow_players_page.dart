@@ -71,7 +71,7 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
 
     try {
       List<Player> allPlayers = [];
-      
+
       // For each selected team, get its players
       for (int teamId in widget.selectedTeamIds) {
         try {
@@ -83,7 +83,7 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
           if (playersResponse.statusCode == 200) {
             final playersData = json.decode(playersResponse.body);
             final players = playersData['data'] ?? [];
-            
+
             // Convert API response to Player objects
             for (var playerData in players) {
               final player = Player(
@@ -124,7 +124,7 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
 
   SportType _getSportType(String? sportName) {
     if (sportName == null) return SportType.football;
-    
+
     switch (sportName.toLowerCase()) {
       case 'football':
       case 'soccer':
@@ -1487,18 +1487,18 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
                     .map((id) => int.tryParse(id) ?? 0)
                     .where((id) => id > 0)
                     .toList();
-                
+
                 await ApiService.savePlayersPreferences(playerIds);
-                
+
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => const WidgetTree()),
                   (route) => false,
                 );
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             }
           : null,

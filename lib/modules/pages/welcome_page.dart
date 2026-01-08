@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:sports_news_app/modules/pages/login_page.dart';
 import 'package:sports_news_app/modules/pages/register_page.dart';
 import 'package:sports_news_app/services/api_service.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sports_news_app/modules/pages/news_page.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -20,9 +22,6 @@ class _WelcomePageState extends State<WelcomePage>
   static const Color adminColor = Color(0xFF9C27B0);
 
   // Admin state variables
-  String? _userRole;
-  String? _adminSportName; // Completely different name
-
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late AnimationController _pulseController;
@@ -320,16 +319,7 @@ class _WelcomePageState extends State<WelcomePage>
         return AdminLoginDialog(
           onLogin: (role, assignedSport) {
             Navigator.pop(context);
-            
-            // Store admin info in state
-            setState(() {
-              _userRole = role;
-              // Extract assigned sport name from user object
-              if (role != 'super_admin' && assignedSport != null) {
-                _adminSportName = assignedSport;
-              }
-            });
-            
+
             if (role == 'super_admin') {
               Navigator.push(
                 context,
@@ -684,10 +674,10 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
                           email: _emailController.text.trim(),
                           password: _passwordController.text,
                         );
-                        
+
                         if (mounted) {
                           Navigator.pop(context);
-                          
+
                           // Show success message
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -695,20 +685,23 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
                               backgroundColor: Colors.green,
                             ),
                           );
-                          
+
                           // Navigate based on role
                           final role = result['role'];
-                          final assignedSport = result['user']?['assigned_sport']?['name'] as String?;
-                          
+                          final assignedSport =
+                              result['user']?['assigned_sport']?['name']
+                                  as String?;
+
                           if (role == 'super_admin') {
-                            Navigator.pushReplacement(
+                            Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const SuperAdminDashboardPage(),
+                                builder: (context) =>
+                                    const SuperAdminDashboardPage(),
                               ),
                             );
                           } else {
-                            Navigator.pushReplacement(
+                            Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => AdminDashboardPage(
@@ -898,7 +891,10 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
         actions: [
           IconButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const WelcomePage()),
+                (route) => false,
+              );
             },
             icon: const Icon(Icons.logout),
           ),
@@ -1424,7 +1420,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
 class AdminDashboardPage extends StatefulWidget {
   final String? userRole;
   final String? adminSportName; // Updated variable name
-  
+
   const AdminDashboardPage({super.key, this.userRole, this.adminSportName});
 
   @override
@@ -1440,12 +1436,395 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   String? _adminSportName;
   String? _selectedSport;
 
+  List<Map<String, dynamic>> _adminMatches = [];
+  bool _isMatchesLoading = false;
+  String? _matchesError;
+
   @override
   void initState() {
     super.initState();
     // Initialize admin info from widget
     _userRole = widget.userRole;
     _adminSportName = widget.adminSportName;
+    _fetchAdminPosts();
+    _fetchAdminMatches();
+    _loadLeaguesAndTeams();
+  }
+
+  int _sportIdFromName(String? sportName) {
+    switch (sportName?.toLowerCase()) {
+      case 'football':
+        return 1;
+      case 'basketball':
+        return 2;
+      case 'tennis':
+        return 3;
+      case 'volleyball':
+        return 4;
+      default:
+        return 1;
+    }
+  }
+
+  int _currentAdminSportId() {
+    final currentSport = _userRole == 'super_admin'
+        ? _selectedSport
+        : _adminSportName;
+    return _sportIdFromName(currentSport);
+  }
+
+  DateTime _parseMatchDateTime(Map<String, dynamic> m) {
+    final matchTime = (m['match_time'] ?? m['date_time'] ?? m['matchTime'])
+        ?.toString();
+    if (matchTime == null || matchTime.isEmpty) return DateTime(1970);
+    return DateTime.tryParse(matchTime) ?? DateTime(1970);
+  }
+
+  String _matchTitle(Map<String, dynamic> m) {
+    final homeTeam = (m['home_team']?['name'] ?? m['home_team_name'] ?? 'Home')
+        .toString();
+    final awayTeam = (m['away_team']?['name'] ?? m['away_team_name'] ?? 'Away')
+        .toString();
+    return '$homeTeam vs $awayTeam';
+  }
+
+  String _matchSubtitle(Map<String, dynamic> m) {
+    final league = (m['league']?['name'] ?? m['league_name'] ?? 'League')
+        .toString();
+    final dateTime = _parseMatchDateTime(m);
+    final status = (m['status'] ?? 'scheduled').toString();
+    return '$league • ${DateFormat('MMM d, h:mm a').format(dateTime)} • $status';
+  }
+
+  String _matchScoreText(Map<String, dynamic> m) {
+    final status = (m['status'] ?? 'scheduled').toString().toLowerCase();
+    final homeScore = m['home_score'];
+    final awayScore = m['away_score'];
+    if ((status == 'live' || status == 'finished') &&
+        homeScore != null &&
+        awayScore != null) {
+      return '${homeScore.toString()} - ${awayScore.toString()}';
+    }
+    return '-';
+  }
+
+  Future<void> _fetchAdminMatches() async {
+    if (!mounted) return;
+    setState(() {
+      _isMatchesLoading = true;
+      _matchesError = null;
+    });
+    try {
+      final raw = await ApiService.getMatches();
+      final sportId = _currentAdminSportId();
+      final matches = raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .where((m) {
+            final direct = m['sport_id'];
+            final sid = direct is int
+                ? direct
+                : int.tryParse((direct ?? '').toString());
+            final nested = m['sport'] is Map ? (m['sport'] as Map)['id'] : null;
+            final nestedSid = nested is int
+                ? nested
+                : int.tryParse((nested ?? '').toString());
+            final effectiveSid = sid ?? nestedSid;
+            return effectiveSid == null ? false : effectiveSid == sportId;
+          })
+          .toList();
+
+      matches.sort(
+        (a, b) => _parseMatchDateTime(b).compareTo(_parseMatchDateTime(a)),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _adminMatches = matches;
+        _isMatchesLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _matchesError = e.toString();
+        _isMatchesLoading = false;
+      });
+    }
+  }
+
+  Future<void> _showUpdateMatchDialog(Map<String, dynamic> match) async {
+    final matchId = (match['id'] ?? '').toString();
+    if (matchId.isEmpty) return;
+
+    final parentContext = context;
+
+    String status = (match['status'] ?? 'scheduled').toString();
+    final homeScoreController = TextEditingController(
+      text: (match['home_score'] ?? 0).toString(),
+    );
+    final awayScoreController = TextEditingController(
+      text: (match['away_score'] ?? 0).toString(),
+    );
+
+    final shouldRefresh = await showDialog<bool>(
+      context: parentContext,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (dialogContext) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> onSave() async {
+              setDialogState(() => isSaving = true);
+              final parsedHomeScore = int.tryParse(homeScoreController.text);
+              final parsedAwayScore = int.tryParse(awayScoreController.text);
+              final homeScore = status == 'scheduled' ? null : parsedHomeScore;
+              final awayScore = status == 'scheduled' ? null : parsedAwayScore;
+
+              try {
+                await ApiService.updateMatch(
+                  matchId: matchId,
+                  status: status,
+                  homeScore: homeScore,
+                  awayScore: awayScore,
+                );
+                if (dialogContext.mounted) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  Navigator.of(dialogContext, rootNavigator: true).pop(true);
+                }
+              } catch (e) {
+                if (parentContext.mounted) {
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    SnackBar(content: Text('Failed to update match: $e')),
+                  );
+                }
+                if (dialogContext.mounted) {
+                  setDialogState(() => isSaving = false);
+                }
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Update Match Result'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: status,
+                    decoration: const InputDecoration(
+                      labelText: 'Status',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'scheduled',
+                        child: Text('Scheduled'),
+                      ),
+                      DropdownMenuItem(value: 'live', child: Text('Live')),
+                      DropdownMenuItem(
+                        value: 'finished',
+                        child: Text('Finished'),
+                      ),
+                    ],
+                    onChanged: isSaving
+                        ? null
+                        : (v) {
+                            if (v == null) return;
+                            setDialogState(() {
+                              status = v;
+                            });
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: homeScoreController,
+                          decoration: const InputDecoration(
+                            labelText: 'Home Score',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          enabled: !isSaving,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: awayScoreController,
+                          decoration: const InputDecoration(
+                            labelText: 'Away Score',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          enabled: !isSaving,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.of(
+                          dialogContext,
+                          rootNavigator: true,
+                        ).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: isSaving ? null : onSave,
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    homeScoreController.dispose();
+    awayScoreController.dispose();
+
+    if (shouldRefresh == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _fetchAdminMatches();
+        }
+      });
+    }
+  }
+
+  Future<void> _confirmDeleteMatch(Map<String, dynamic> match) async {
+    final matchId = (match['id'] ?? '').toString();
+    if (matchId.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Match'),
+          content: Text(
+            'Are you sure you want to delete this match?\n\n${_matchTitle(match)}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await ApiService.deleteMatch(matchId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Match deleted successfully.')),
+      );
+      await _fetchAdminMatches();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete match: $e')));
+    }
+  }
+
+  Future<void> _loadLeaguesAndTeams() async {
+    setState(() => _isLoadingLeaguesTeams = true);
+    try {
+      int sportId;
+      final currentSport = _userRole == 'super_admin'
+          ? _selectedSport
+          : _adminSportName;
+      switch (currentSport?.toLowerCase()) {
+        case 'football':
+          sportId = 1;
+          break;
+        case 'basketball':
+          sportId = 2;
+          break;
+        case 'tennis':
+          sportId = 3;
+          break;
+        case 'volleyball':
+          sportId = 4;
+          break;
+        default:
+          sportId = 1;
+      }
+
+      final leaguesData = await ApiService.getLeaguesBySport(sportId);
+      setState(() {
+        _leagues = leaguesData;
+        if (_leagues.isNotEmpty) {
+          _matchLeagueId = _leagues[0]['id'];
+          _loadTeamsForLeague(_matchLeagueId!);
+        }
+      });
+    } catch (e) {
+      debugPrint('Error loading leagues: $e');
+    } finally {
+      setState(() => _isLoadingLeaguesTeams = false);
+    }
+  }
+
+  Future<void> _loadTeamsForLeague(int leagueId) async {
+    try {
+      final teamsData = await ApiService.getTeamsByLeague(leagueId);
+      setState(() {
+        _teams = teamsData;
+        _matchHomeTeamId = null;
+        _matchAwayTeamId = null;
+      });
+    } catch (e) {
+      debugPrint('Error loading teams: $e');
+    }
+  }
+
+  List<NewsArticle> _adminPosts = [];
+  bool _isPostsLoading = true;
+  String? _postsError;
+
+  Future<void> _fetchAdminPosts() async {
+    if (!mounted) return;
+    setState(() {
+      _isPostsLoading = true;
+      _postsError = null;
+    });
+    try {
+      final newsData = await ApiService.getNewsFeed();
+      if (!mounted) return;
+      setState(() {
+        _adminPosts = newsData
+            .map((data) => NewsArticle.fromJson(data))
+            .toList();
+        _isPostsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _postsError = e.toString();
+        _isPostsLoading = false;
+      });
+    }
   }
 
   // Create Tab State
@@ -1456,133 +1835,152 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   bool _isCreateLoading = false;
   final ImagePicker _picker = ImagePicker();
 
+  // Match Tab State
+  final _matchFormKey = GlobalKey<FormState>();
+  int? _matchHomeTeamId;
+  int? _matchAwayTeamId;
+  int? _matchLeagueId;
+  DateTime _matchDate = DateTime.now();
+  TimeOfDay _matchTime = TimeOfDay.now();
+  String _matchStatus = 'scheduled';
+  final TextEditingController _homeScoreController = TextEditingController(
+    text: '0',
+  );
+  final TextEditingController _awayScoreController = TextEditingController(
+    text: '0',
+  );
+  List<dynamic> _leagues = [];
+  List<dynamic> _teams = [];
+  bool _isLoadingLeaguesTeams = false;
+
   @override
   void dispose() {
     _createTitleController.dispose();
     _createBodyController.dispose();
+    _homeScoreController.dispose();
+    _awayScoreController.dispose();
     super.dispose();
   }
 
-  final List<Map<String, dynamic>> _mockPosts = [
-    {
-      'id': '1',
-      'title': 'Football Championship Final',
-      'body': 'The final match was held yesterday with amazing performance...',
-      'sport': 'Football',
-      'time': '2 hours ago',
-      'likes': 245,
-      'author': 'Admin John',
-    },
-    {
-      'id': '2',
-      'title': 'Basketball League Updates',
-      'body': 'New updates from the basketball league season...',
-      'sport': 'Basketball',
-      'time': '5 hours ago',
-      'likes': 189,
-      'author': 'Admin Mike',
-    },
-    {
-      'id': '3',
-      'title': 'Tennis Tournament Results',
-      'body': 'Results from the international tennis tournament...',
-      'sport': 'Tennis',
-      'time': '1 day ago',
-      'likes': 312,
-      'author': 'Admin Sarah',
-    },
-  ];
-@override
-Widget build(BuildContext context) {
-  final myPosts = _mockPosts;
+  @override
+  Widget build(BuildContext context) {
+    if (_selectedTab == 3 && _leagues.isEmpty && !_isLoadingLeaguesTeams) {
+      _loadLeaguesAndTeams();
+    }
+    final myPosts = _adminPosts;
 
-  return Scaffold(
-    appBar: AppBar(
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: _adminColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.admin_panel_settings,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: _adminColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.admin_panel_settings,
-                  color: Colors.white,
-                  size: 16,
-                ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: _adminColor,
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Admin Dashboard',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: const Icon(
+                Icons.admin_panel_settings,
+                color: Colors.white,
+                size: 24,
               ),
-            ],
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: _adminColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.admin_panel_settings,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Admin Dashboard',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const WelcomePage()),
+                (route) => false,
+              );
+            },
+            icon: const Icon(Icons.logout),
           ),
         ],
       ),
-      actions: [
-        IconButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
-          icon: const Icon(Icons.logout),
-        ),
-      ],
-    ),
-    body: _buildTabContent(myPosts),
-    bottomNavigationBar: BottomNavigationBar(
-      currentIndex: _selectedTab,
-      onTap: (index) {
-        setState(() {
-          _selectedTab = index;
-        });
-      },
-      selectedItemColor: _adminColor,
-      unselectedItemColor: Colors.grey,
-      type: BottomNavigationBarType.fixed,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.dashboard),
-          label: 'Dashboard',
-        ),
-        BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: 'Posts'),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.add_circle),
-          label: 'Create',
-        ),
-      ],
-    ),
-    floatingActionButton: _selectedTab == 1
-        ? FloatingActionButton(
-            backgroundColor: _adminColor,
-            onPressed: () => _showCreatePostDialog(),
-            child: const Icon(Icons.add, color: Colors.white),
-          )
-        : null,
-  );
-}
+      body: _buildTabContent(myPosts),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedTab,
+        onTap: (index) {
+          setState(() {
+            _selectedTab = index;
+          });
+          if (index == 0) {
+            _fetchAdminMatches();
+          }
+        },
+        selectedItemColor: _adminColor,
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: 'Posts'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle),
+            label: 'Create News',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.sports_score),
+            label: 'Add Match',
+          ),
+        ],
+      ),
+      floatingActionButton: _selectedTab == 1
+          ? FloatingActionButton(
+              backgroundColor: _adminColor,
+              onPressed: () => _showCreatePostDialog(),
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
+    );
+  }
 
-  Widget _buildTabContent(List<Map<String, dynamic>> myPosts) {
+  Widget _buildTabContent(List<NewsArticle> myPosts) {
+    if (_isPostsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_postsError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error: $_postsError'),
+            ElevatedButton(
+              onPressed: _fetchAdminPosts,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
     switch (_selectedTab) {
       case 0:
         return _buildDashboardTab(myPosts);
@@ -1590,12 +1988,14 @@ Widget build(BuildContext context) {
         return _buildPostsTab(myPosts);
       case 2:
         return _buildCreateTab();
+      case 3:
+        return _buildMatchesTab();
       default:
         return _buildDashboardTab(myPosts);
     }
   }
 
-  Widget _buildDashboardTab(List<Map<String, dynamic>> myPosts) {
+  Widget _buildDashboardTab(List<NewsArticle> myPosts) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1611,7 +2011,7 @@ Widget build(BuildContext context) {
           ),
           const SizedBox(height: 8),
           Text(
-            'You can manage posts for All Sports',
+            'You can manage posts for ${_adminSportName ?? "All Sports"}',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -1640,7 +2040,7 @@ Widget build(BuildContext context) {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Total Likes',
-                          '${myPosts.fold(0, (sum, post) => sum + (post['likes'] as int))}',
+                          '${myPosts.fold(0, (sum, post) => sum + post.likes)}',
                           Icons.thumb_up,
                           Colors.green,
                         ),
@@ -1654,8 +2054,8 @@ Widget build(BuildContext context) {
                       SizedBox(
                         width: cardWidth,
                         child: _buildStatCard(
-                          'Today\'s Posts',
-                          '${myPosts.where((p) => p['time'].contains('hours')).length}',
+                          'Recent Posts',
+                          '${myPosts.where((p) => DateTime.now().difference(p.publishedAt).inDays < 7).length}',
                           Icons.today,
                           Colors.orange,
                         ),
@@ -1664,7 +2064,7 @@ Widget build(BuildContext context) {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Engagement',
-                          '${myPosts.isNotEmpty ? (myPosts.fold(0, (sum, post) => sum + (post['likes'] as int)) ~/ myPosts.length) : 0}',
+                          '${myPosts.isNotEmpty ? (myPosts.fold(0, (sum, post) => sum + post.likes) ~/ myPosts.length) : 0}',
                           Icons.trending_up,
                           Colors.purple,
                         ),
@@ -1675,6 +2075,144 @@ Widget build(BuildContext context) {
               );
             },
           ),
+
+          const SizedBox(height: 24),
+          Text(
+            'Recent Added Matches',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_isMatchesLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_matchesError != null)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Error: $_matchesError'),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _fetchAdminMatches,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_adminMatches.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.sports_score,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No matches yet',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add your first match from the Add Match tab',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _adminMatches.length,
+              itemBuilder: (context, index) {
+                final m = _adminMatches[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    title: Text(
+                      _matchTitle(m),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _matchSubtitle(m),
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.score, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                _matchScoreText(m),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () => _showUpdateMatchDialog(m),
+                                icon: const Icon(Icons.edit, size: 18),
+                                label: const Text('Update Result'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _adminColor,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () => _confirmDeleteMatch(m),
+                                icon: const Icon(
+                                  Icons.delete,
+                                  size: 18,
+                                  color: Colors.red,
+                                ),
+                                label: const Text(
+                                  'Delete',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
 
           const SizedBox(height: 24),
           Text(
@@ -1732,7 +2270,7 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildPostsTab(List<Map<String, dynamic>> myPosts) {
+  Widget _buildPostsTab(List<NewsArticle> myPosts) {
     if (myPosts.isEmpty) {
       return Center(
         child: Column(
@@ -1753,7 +2291,7 @@ Widget build(BuildContext context) {
             ),
             const SizedBox(height: 8),
             Text(
-              "Create your first post for 'All Sports'",
+              "Create your first post for '${_adminSportName ?? "All Sports"}'",
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1763,13 +2301,16 @@ Widget build(BuildContext context) {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: myPosts.length,
-      itemBuilder: (context, index) {
-        final post = myPosts[index];
-        return _buildPostCard(post);
-      },
+    return RefreshIndicator(
+      onRefresh: _fetchAdminPosts,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: myPosts.length,
+        itemBuilder: (context, index) {
+          final post = myPosts[index];
+          return _buildPostCard(post);
+        },
+      ),
     );
   }
 
@@ -1937,7 +2478,9 @@ Widget build(BuildContext context) {
       try {
         int sportId;
         // Use the selected sport from admin login, not hardcoded
-        final selectedSport = _userRole == 'super_admin' ? _selectedSport : _adminSportName;
+        final selectedSport = _userRole == 'super_admin'
+            ? _selectedSport
+            : _adminSportName;
         switch (selectedSport?.toLowerCase()) {
           case 'football':
             sportId = 1;
@@ -1975,6 +2518,7 @@ Widget build(BuildContext context) {
             _createSelectedImage = null;
             _selectedTab = 1; // Switch to Post list tab to see it
           });
+          _fetchAdminPosts(); // Refresh list
         }
       } catch (e) {
         if (mounted) {
@@ -1988,7 +2532,7 @@ Widget build(BuildContext context) {
     }
   }
 
-  Widget _buildPostCard(Map<String, dynamic> post) {
+  Widget _buildPostCard(NewsArticle post) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -1996,16 +2540,16 @@ Widget build(BuildContext context) {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: _getSportColor(post['sport']!).withOpacity(0.1),
+            color: _getSportColor(post.sport).withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
-            _getSportIcon(post['sport']!),
-            color: _getSportColor(post['sport']!),
+            _getSportIcon(post.sport),
+            color: _getSportColor(post.sport),
           ),
         ),
         title: Text(
-          post['title']!,
+          post.title,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Column(
@@ -2015,7 +2559,7 @@ Widget build(BuildContext context) {
             Row(
               children: [
                 Text(
-                  '${post['sport']} • ${post['time']}',
+                  '${post.sport} • ${DateFormat('MMM d, h:mm a').format(post.publishedAt)}',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -2025,9 +2569,9 @@ Widget build(BuildContext context) {
             ),
             const SizedBox(height: 8),
             Text(
-              (post['body'] as String).length > 100
-                  ? '${(post['body'] as String).substring(0, 100)}...'
-                  : post['body']!,
+              post.description.length > 100
+                  ? '${post.description.substring(0, 100)}...'
+                  : post.description,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -2038,17 +2582,7 @@ Widget build(BuildContext context) {
                 Icon(Icons.thumb_up, size: 14, color: Colors.grey[500]),
                 const SizedBox(width: 4),
                 Text(
-                  '${post['likes']} likes',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Icon(Icons.person, size: 14, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  post['author']!,
+                  '${post.likes} likes',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -2058,15 +2592,19 @@ Widget build(BuildContext context) {
             ),
           ],
         ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'edit', child: Text('Edit')),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Text('Delete', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
+        trailing:
+            post.author ==
+                _userRole // Simple check for ownership
+            ? PopupMenuButton(
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Delete', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              )
+            : null,
       ),
     );
   }
@@ -2152,7 +2690,10 @@ Widget build(BuildContext context) {
         onPost: (postData) async {
           try {
             int sportId;
-            switch ('football'.toLowerCase()) {
+            final currentSport = _userRole == 'super_admin'
+                ? _selectedSport
+                : _adminSportName;
+            switch (currentSport?.toLowerCase()) {
               case 'football':
                 sportId = 1;
                 break;
@@ -2170,13 +2711,12 @@ Widget build(BuildContext context) {
             }
 
             await ApiService.createPost(
-              title: postData['title'],
-              description:
-                  postData['body'], // Using body as description for now
-              content: postData['body'],
-              sportId: sportId,
-              category: 'General', // Default category
-              imagePath: postData['image_path'],
+              title: postData['title'] as String,
+              description: postData['description'] as String,
+              content: postData['content'] as String,
+              sportId: (postData['sport_id'] as int?) ?? sportId,
+              category: (postData['category'] as String?) ?? 'General',
+              imagePath: postData['image_path'] as String?,
             );
 
             if (mounted) {
@@ -2186,6 +2726,7 @@ Widget build(BuildContext context) {
                   content: Text('News post created successfully!'),
                 ),
               );
+              _fetchAdminPosts(); // Refresh list
             }
           } catch (e) {
             // Error is handled in dialog, but if it propagates:
@@ -2200,6 +2741,358 @@ Widget build(BuildContext context) {
         },
       ),
     );
+  }
+
+  Widget _buildMatchesTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _matchFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Schedule New Match',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Add a new match for '${_adminSportName ?? "All Sports"}'",
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // League Dropdown
+                    DropdownButtonFormField<int>(
+                      value: _matchLeagueId,
+                      decoration: const InputDecoration(
+                        labelText: 'League',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _leagues.map<DropdownMenuItem<int>>((league) {
+                        return DropdownMenuItem<int>(
+                          value: league['id'],
+                          child: Text(league['name']),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _matchLeagueId = value;
+                          if (value != null) _loadTeamsForLeague(value);
+                        });
+                      },
+                      validator: (value) =>
+                          value == null ? 'Please select a league' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // Home Team Dropdown
+                    DropdownButtonFormField<int>(
+                      value: _matchHomeTeamId,
+                      decoration: const InputDecoration(
+                        labelText: 'Home Team',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _teams.map<DropdownMenuItem<int>>((team) {
+                        return DropdownMenuItem<int>(
+                          value: team['id'],
+                          child: Text(team['name']),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() => _matchHomeTeamId = value);
+                      },
+                      validator: (value) =>
+                          value == null ? 'Please select home team' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // Away Team Dropdown
+                    DropdownButtonFormField<int>(
+                      value: _matchAwayTeamId,
+                      decoration: const InputDecoration(
+                        labelText: 'Away Team',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _teams.map<DropdownMenuItem<int>>((team) {
+                        return DropdownMenuItem<int>(
+                          value: team['id'],
+                          child: Text(team['name']),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() => _matchAwayTeamId = value);
+                      },
+                      validator: (value) {
+                        if (value == null) return 'Please select away team';
+                        if (value == _matchHomeTeamId) {
+                          return 'Away team cannot be the same as home team';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Status Dropdown
+                    DropdownButtonFormField<String>(
+                      value: _matchStatus,
+                      decoration: const InputDecoration(
+                        labelText: 'Match Status',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'scheduled',
+                          child: Text('Scheduled'),
+                        ),
+                        DropdownMenuItem(value: 'live', child: Text('Live')),
+                        DropdownMenuItem(
+                          value: 'finished',
+                          child: Text('Finished'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _matchStatus = value!;
+                          // Reset scores to 0-0 when status changes to live
+                          if (value == 'live') {
+                            _homeScoreController.text = '0';
+                            _awayScoreController.text = '0';
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Score Input (only show for live or finished matches)
+                    if (_matchStatus == 'live' || _matchStatus == 'finished')
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _homeScoreController,
+                              decoration: const InputDecoration(
+                                labelText: 'Home Score',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              enabled:
+                                  _matchStatus == 'live' ||
+                                  _matchStatus == 'finished',
+                              validator: (value) {
+                                if ((_matchStatus == 'live' ||
+                                        _matchStatus == 'finished') &&
+                                    (value == null || value.isEmpty)) {
+                                  return 'Please enter home score';
+                                }
+                                if (value != null &&
+                                    value.isNotEmpty &&
+                                    int.tryParse(value) == null) {
+                                  return 'Please enter a valid number';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text('-', style: TextStyle(fontSize: 24)),
+                          ),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _awayScoreController,
+                              decoration: const InputDecoration(
+                                labelText: 'Away Score',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              enabled:
+                                  _matchStatus == 'live' ||
+                                  _matchStatus == 'finished',
+                              validator: (value) {
+                                if ((_matchStatus == 'live' ||
+                                        _matchStatus == 'finished') &&
+                                    (value == null || value.isEmpty)) {
+                                  return 'Please enter away score';
+                                }
+                                if (value != null &&
+                                    value.isNotEmpty &&
+                                    int.tryParse(value) == null) {
+                                  return 'Please enter a valid number';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (_matchStatus == 'live' || _matchStatus == 'finished')
+                      const SizedBox(height: 16),
+                    // Date & Time Selectors
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _matchDate,
+                                firstDate: DateTime.now().subtract(
+                                  const Duration(days: 365),
+                                ),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 365),
+                                ),
+                              );
+                              if (picked != null) {
+                                setState(() => _matchDate = picked);
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Date',
+                                border: OutlineInputBorder(),
+                              ),
+                              child: Text(
+                                DateFormat('yyyy-MM-dd').format(_matchDate),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: _matchTime,
+                              );
+                              if (picked != null) {
+                                setState(() => _matchTime = picked);
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Time',
+                                border: OutlineInputBorder(),
+                              ),
+                              child: Text(_matchTime.format(context)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _isCreateLoading ? null : _submitMatch,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _adminColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _isCreateLoading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text(
+                                'Add Match',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitMatch() async {
+    if (_matchFormKey.currentState!.validate()) {
+      setState(() => _isCreateLoading = true);
+      try {
+        int sportId;
+        final currentSport = _userRole == 'super_admin'
+            ? _selectedSport
+            : _adminSportName;
+        switch (currentSport?.toLowerCase()) {
+          case 'football':
+            sportId = 1;
+            break;
+          case 'basketball':
+            sportId = 2;
+            break;
+          case 'tennis':
+            sportId = 3;
+            break;
+          case 'volleyball':
+            sportId = 4;
+            break;
+          default:
+            sportId = 1;
+        }
+
+        final matchDateTime = DateTime(
+          _matchDate.year,
+          _matchDate.month,
+          _matchDate.day,
+          _matchTime.hour,
+          _matchTime.minute,
+        );
+
+        int? homeScore = _matchStatus == 'live' || _matchStatus == 'finished'
+            ? int.tryParse(_homeScoreController.text)
+            : null;
+        int? awayScore = _matchStatus == 'live' || _matchStatus == 'finished'
+            ? int.tryParse(_awayScoreController.text)
+            : null;
+
+        await ApiService.createMatch(
+          homeTeamId: _matchHomeTeamId!,
+          awayTeamId: _matchAwayTeamId!,
+          leagueId: _matchLeagueId!,
+          sportId: sportId,
+          matchTime: matchDateTime.toIso8601String(),
+          status: _matchStatus,
+          homeScore: homeScore,
+          awayScore: awayScore,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Match added successfully!')),
+          );
+          setState(() {
+            _selectedTab = 0; // Go back to dashboard
+          });
+          await _fetchAdminMatches();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to add match: $e')));
+        }
+      } finally {
+        if (mounted) setState(() => _isCreateLoading = false);
+      }
+    }
   }
 }
 
@@ -2793,10 +3686,7 @@ class _EditSportDialogState extends State<EditSportDialog> {
 class CreatePostDialog extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic>) onPost;
 
-  const CreatePostDialog({
-    super.key,
-    required this.onPost,
-  });
+  const CreatePostDialog({super.key, required this.onPost});
 
   @override
   State<CreatePostDialog> createState() => _CreatePostDialogState();
@@ -2913,10 +3803,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.sports,
-                          color: _getSportColor('Football'),
-                        ),
+                        Icon(Icons.sports, color: _getSportColor('Football')),
                         const SizedBox(width: 12),
                         Text(
                           "Sport: 'All Sports'",
@@ -2993,7 +3880,10 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                                     try {
                                       await widget.onPost({
                                         'title': _titleController.text,
-                                        'body': _bodyController.text,
+                                        'description': _bodyController.text,
+                                        'content': _bodyController.text,
+                                        'sport_id': 1,
+                                        'category': 'General',
                                         'image_path': _selectedImage?.path,
                                       });
                                       // Dialog closed by parent on success or we can close it here if parent doesn't

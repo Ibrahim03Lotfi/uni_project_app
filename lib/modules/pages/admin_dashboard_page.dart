@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sports_news_app/services/api_service.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -20,11 +19,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.admin_panel_settings,
-              size: 64,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.admin_panel_settings, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             const Text(
               'Admin Dashboard',
@@ -37,10 +32,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             const SizedBox(height: 8),
             const Text(
               'Welcome, Admin!',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],
         ),

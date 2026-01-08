@@ -40,46 +40,47 @@ class FollowLeaguesPage extends StatefulWidget {
 
 class _FollowLeaguesPageState extends State<FollowLeaguesPage>
     with SingleTickerProviderStateMixin {
+  // Add to your FollowLeaguesPage state class
+  List<dynamic> _leagues = [];
+  Set<int> _selectedLeagueIds = {};
 
-      // Add to your FollowLeaguesPage state class
-List<dynamic> _leagues = [];
-Set<int> _selectedLeagueIds = {};
+  Future<void> _fetchLeagues() async {
+    try {
+      // Replace with your actual endpoint
+      final response = await http.get(
+        Uri.parse('${ApiService.baseUrl}/leagues'),
+        headers: await ApiService.headers,
+      );
 
-
-
-Future<void> _fetchLeagues() async {
-  try {
-    // Replace with your actual endpoint
-    final response = await http.get(
-      Uri.parse('${ApiService.baseUrl}/leagues'),
-      headers: await ApiService.headers,
-    );
-    
-    if (response.statusCode == 200) {
-      setState(() {
-        _leagues = json.decode(response.body)['data'];
-      });
+      if (response.statusCode == 200) {
+        setState(() {
+          _leagues = json.decode(response.body)['data'];
+        });
+      }
+    } catch (e) {
+      print('Error fetching leagues: $e');
     }
-  } catch (e) {
-    print('Error fetching leagues: $e');
   }
-}
 
-void _onFinish() async {
-  try {
-    await ApiService.saveLeaguesPreferences(_selectedLeagueIds.toList());
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to save league preferences')),
+  void _onFinish() async {
+    try {
+      await ApiService.saveLeaguesPreferences(_selectedLeagueIds.toList());
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save league preferences')),
+      );
+    }
+
+    // Navigate to teams selection
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            FollowTeamsPage(selectedLeagueIds: _selectedLeagueIds.toList()),
+      ),
     );
   }
 
-  // Navigate to teams selection
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (context) => FollowTeamsPage(selectedLeagueIds: _selectedLeagueIds.toList())),
-  );
-}
   static const Color primaryGreen = Color(0xFF43A047);
   static const Color darkGreen = Color(0xFF2E7D32);
   static const Color lightGreen = Color(0xFF81C784);
@@ -97,7 +98,6 @@ void _onFinish() async {
     _fetchLeagues();
     _tabController = TabController(length: 5, vsync: this);
     _initializeLeagues();
-    
   }
 
   void _initializeLeagues() {
@@ -1106,7 +1106,9 @@ void _onFinish() async {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => FollowTeamsPage(selectedLeagueIds: _selectedLeagueIds.toList()),
+                  builder: (context) => FollowTeamsPage(
+                    selectedLeagueIds: _selectedLeagueIds.toList(),
+                  ),
                 ),
               );
             }
@@ -1819,7 +1821,9 @@ void _onFinish() async {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => FollowTeamsPage(selectedLeagueIds: _selectedLeagueIds.toList()),
+                          builder: (context) => FollowTeamsPage(
+                            selectedLeagueIds: _selectedLeagueIds.toList(),
+                          ),
                         ),
                       );
                     }
