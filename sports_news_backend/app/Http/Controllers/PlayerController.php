@@ -26,4 +26,14 @@ class PlayerController extends Controller
             'data' => $players
         ]);
     }
+
+    public function all()
+    {
+        $players = Player::with(['sport', 'team'])->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $players
+        ]);
+    }
 }

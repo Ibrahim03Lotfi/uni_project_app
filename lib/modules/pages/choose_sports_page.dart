@@ -201,7 +201,6 @@ class _ChooseSportsPageState extends State<ChooseSportsPage>
     try {
       await ApiService.saveSportsPreferences(_selectedSportIds.toList());
     } catch (e) {
-      print('Error saving preferences: $e');
       // Show error snackbar
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

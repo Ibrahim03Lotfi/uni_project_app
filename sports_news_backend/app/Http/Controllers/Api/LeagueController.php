@@ -26,4 +26,21 @@ class LeagueController extends Controller
             ], 500);
         }
     }
+    
+    public function all(): JsonResponse
+    {
+        try {
+            $leagues = League::with('sport')->get();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $leagues
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

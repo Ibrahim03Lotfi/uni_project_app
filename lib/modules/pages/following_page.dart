@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sports_news_app/services/api_service.dart';
 
 class FollowingPage extends StatefulWidget {
   const FollowingPage({super.key});
@@ -15,249 +16,104 @@ class _FollowingPageState extends State<FollowingPage> {
   int _selectedCategory = 0; // 0: Players, 1: Leagues, 2: Teams, 3: Sports
   final List<String> _categories = ['Players', 'Leagues', 'Teams', 'Sports'];
 
-  // Sample data for each category
-  final List<Map<String, dynamic>> _allPlayers = [
-    {
-      'id': '1',
-      'name': 'Cristiano Ronaldo',
-      'logo': '🇵🇹',
-      'league': 'Al-Nassr',
-      'isFollowing': true,
-    },
-    {
-      'id': '2',
-      'name': 'Lionel Messi',
-      'logo': '🇦🇷',
-      'league': 'Inter Miami',
-      'isFollowing': true,
-    },
-    {
-      'id': '3',
-      'name': 'Kylian Mbappé',
-      'logo': '🇫🇷',
-      'league': 'Paris Saint-Germain',
-      'isFollowing': false,
-    },
-    {
-      'id': '4',
-      'name': 'Erling Haaland',
-      'logo': '🇳🇴',
-      'league': 'Manchester City',
-      'isFollowing': false,
-    },
-    {
-      'id': '5',
-      'name': 'Mohamed Salah',
-      'logo': '🇪🇬',
-      'league': 'Liverpool',
-      'isFollowing': false,
-    },
-    {
-      'id': '6',
-      'name': 'Kevin De Bruyne',
-      'logo': '🇧🇪',
-      'league': 'Manchester City',
-      'isFollowing': true,
-    },
-    {
-      'id': '7',
-      'name': 'Karim Benzema',
-      'logo': '🇫🇷',
-      'league': 'Al-Ittihad',
-      'isFollowing': false,
-    },
-    {
-      'id': '8',
-      'name': 'Neymar Jr',
-      'logo': '🇧🇷',
-      'league': 'Al-Hilal',
-      'isFollowing': false,
-    },
-  ];
+  // Dynamic data from backend
+  List<dynamic> _followedPlayers = [];
+  List<dynamic> _followedLeagues = [];
+  List<dynamic> _followedTeams = [];
+  List<dynamic> _followedSports = [];
+  
+  // Recommendations data
+  List<dynamic> _recommendedSports = [];
+  List<dynamic> _recommendedLeagues = [];
+  List<dynamic> _recommendedTeams = [];
+  List<dynamic> _recommendedPlayers = [];
+  
+  bool _isLoading = true;
+  bool _showRecommendations = false;
 
-  final List<Map<String, dynamic>> _allLeagues = [
-    {
-      'id': '1',
-      'name': 'Premier League',
-      'logo': '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-      'sport': 'Football',
-      'isFollowing': true,
-    },
-    {
-      'id': '2',
-      'name': 'La Liga',
-      'logo': '🇪🇸',
-      'sport': 'Football',
-      'isFollowing': false,
-    },
-    {
-      'id': '3',
-      'name': 'NBA',
-      'logo': '🏀',
-      'sport': 'Basketball',
-      'isFollowing': true,
-    },
-    {
-      'id': '4',
-      'name': 'UEFA Champions League',
-      'logo': '⭐',
-      'sport': 'Football',
-      'isFollowing': true,
-    },
-    {
-      'id': '5',
-      'name': 'Serie A',
-      'logo': '🇮🇹',
-      'sport': 'Football',
-      'isFollowing': false,
-    },
-    {
-      'id': '6',
-      'name': 'Bundesliga',
-      'logo': '🇩🇪',
-      'sport': 'Football',
-      'isFollowing': false,
-    },
-    {
-      'id': '7',
-      'name': 'MLB',
-      'logo': '⚾',
-      'sport': 'Baseball',
-      'isFollowing': false,
-    },
-    {
-      'id': '8',
-      'name': 'NFL',
-      'logo': '🏈',
-      'sport': 'American Football',
-      'isFollowing': true,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadUserPreferences();
+  }
 
-  final List<Map<String, dynamic>> _allTeams = [
-    {
-      'id': '1',
-      'name': 'Manchester United',
-      'logo': '🔴',
-      'league': 'Premier League',
-      'isFollowing': true,
-    },
-    {
-      'id': '2',
-      'name': 'Real Madrid',
-      'logo': '⚪',
-      'league': 'La Liga',
-      'isFollowing': true,
-    },
-    {
-      'id': '3',
-      'name': 'Los Angeles Lakers',
-      'logo': '💜💛',
-      'league': 'NBA',
-      'isFollowing': false,
-    },
-    {
-      'id': '4',
-      'name': 'FC Barcelona',
-      'logo': '🔵🔴',
-      'league': 'La Liga',
-      'isFollowing': true,
-    },
-    {
-      'id': '5',
-      'name': 'Liverpool',
-      'logo': '🔴',
-      'league': 'Premier League',
-      'isFollowing': false,
-    },
-    {
-      'id': '6',
-      'name': 'Golden State Warriors',
-      'logo': '💙💛',
-      'league': 'NBA',
-      'isFollowing': false,
-    },
-    {
-      'id': '7',
-      'name': 'Bayern Munich',
-      'logo': '🔴',
-      'league': 'Bundesliga',
-      'isFollowing': true,
-    },
-    {
-      'id': '8',
-      'name': 'PSG',
-      'logo': '🔵🔴',
-      'league': 'Ligue 1',
-      'isFollowing': false,
-    },
-  ];
-
-  final List<Map<String, dynamic>> _allSports = [
-    {'id': '1', 'name': 'Football', 'logo': '⚽', 'isFollowing': true},
-    {'id': '2', 'name': 'Basketball', 'logo': '🏀', 'isFollowing': true},
-    {'id': '3', 'name': 'Tennis', 'logo': '🎾', 'isFollowing': false},
-    {'id': '4', 'name': 'Baseball', 'logo': '⚾', 'isFollowing': false},
-    {
-      'id': '5',
-      'name': 'American Football',
-      'logo': '🏈',
-      'isFollowing': false,
-    },
-    {'id': '6', 'name': 'Volleyball', 'logo': '🏐', 'isFollowing': false},
-    {'id': '7', 'name': 'Cricket', 'logo': '🏏', 'isFollowing': false},
-    {'id': '8', 'name': 'Rugby', 'logo': '🏉', 'isFollowing': true},
-  ];
-
-  List<Map<String, dynamic>> get _currentCategoryData {
-    switch (_selectedCategory) {
-      case 0:
-        return _allPlayers;
-      case 1:
-        return _allLeagues;
-      case 2:
-        return _allTeams;
-      case 3:
-        return _allSports;
-      default:
-        return _allPlayers;
+  Future<void> _loadUserPreferences() async {
+    try {
+      // Get user data which includes preferences
+      final userData = await ApiService.getUser();
+      
+      setState(() {
+        _followedPlayers = userData['preferred_players'] ?? [];
+        _followedLeagues = userData['preferred_leagues'] ?? [];
+        _followedTeams = userData['preferred_teams'] ?? [];
+        _followedSports = userData['preferred_sports'] ?? [];
+        _isLoading = false;
+      });
+      
+      // Load recommendations after user preferences are loaded
+      _loadRecommendations();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading preferences: $e')),
+        );
+      }
     }
   }
 
-  void _toggleFollow(String id) {
-    setState(() {
-      final data = _currentCategoryData;
-      final itemIndex = data.indexWhere((item) => item['id'] == id);
-      if (itemIndex != -1) {
-        data[itemIndex]['isFollowing'] = !data[itemIndex]['isFollowing'];
-      }
-    });
-  }
-
-  String _getCategoryTitle() {
-    return _categories[_selectedCategory];
-  }
-
-  String _getCategorySubtitle() {
-    final data = _currentCategoryData;
-    final followingCount = data.where((item) => item['isFollowing']).length;
-    final totalCount = data.length;
-    return '$followingCount/$totalCount ${_categories[_selectedCategory].toLowerCase()} followed';
+  Future<void> _loadRecommendations() async {
+    try {
+      // Get all available data for recommendations
+      final allSports = await ApiService.getSports();
+      final allLeagues = await ApiService.getAllLeagues();
+      final allTeams = await ApiService.getAllTeams();
+      final allPlayers = await ApiService.getAllPlayers();
+      
+      setState(() {
+        // Recommend sports user doesn't follow
+        _recommendedSports = allSports.where((sport) {
+          return !_followedSports.any((followed) => followed['id'] == sport['id']);
+        }).take(5).toList(); // Limit to 5 recommendations
+        
+        // Recommend leagues user doesn't follow
+        _recommendedLeagues = allLeagues.where((league) {
+          return !_followedLeagues.any((followed) => followed['id'] == league['id']);
+        }).take(5).toList();
+        
+        // Recommend teams user doesn't follow
+        _recommendedTeams = allTeams.where((team) {
+          return !_followedTeams.any((followed) => followed['id'] == team['id']);
+        }).take(5).toList();
+        
+        // Recommend players user doesn't follow
+        _recommendedPlayers = allPlayers.where((player) {
+          return !_followedPlayers.any((followed) => followed['id'] == player['id']);
+        }).take(5).toList();
+      });
+    } catch (e) {
+      // Handle error silently for recommendations
+      print('Error loading recommendations: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             _buildHeader(),
-            // Category Tabs
             _buildCategoryTabs(),
-            // Content
-            Expanded(child: _buildContent()),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _buildContent(),
+            ),
           ],
         ),
       ),
@@ -266,38 +122,62 @@ class _FollowingPageState extends State<FollowingPage> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface),
+      padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              'Following',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: primaryGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.favorite,
+              color: primaryGreen,
+              size: 24,
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _getCategorySubtitle().split('/')[0],
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
-              ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Following',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  _getCategorySubtitle(),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _getCategorySubtitle() {
+    switch (_selectedCategory) {
+      case 0:
+        return '${_followedPlayers.length} Players';
+      case 1:
+        return '${_followedLeagues.length} Leagues';
+      case 2:
+        return '${_followedTeams.length} Teams';
+      case 3:
+        return '${_followedSports.length} Sports';
+      default:
+        return '0 Items';
+    }
   }
 
   Widget _buildCategoryTabs() {
@@ -324,30 +204,19 @@ class _FollowingPageState extends State<FollowingPage> {
                 borderRadius: BorderRadius.circular(12),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.surfaceVariant,
+                    color: isSelected ? primaryGreen : Colors.grey[200],
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.outlineVariant,
-                      width: isSelected ? 2 : 1,
-                    ),
                   ),
-                  child: Text(
-                    _categories[index],
-                    style: TextStyle(
-                      color: isSelected
-                          ? Colors.white
-                          : Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                  child: Center(
+                    child: Text(
+                      _categories[index],
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey[600],
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -360,279 +229,442 @@ class _FollowingPageState extends State<FollowingPage> {
   }
 
   Widget _buildContent() {
-    final data = _currentCategoryData;
-    final followingItems = data.where((item) => item['isFollowing']).toList();
-    final notFollowingItems = data
-        .where((item) => !item['isFollowing'])
-        .toList();
+    List<dynamic> currentItems = _getCurrentCategoryItems();
+    List<dynamic> currentRecommendations = _getCurrentRecommendations();
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return Column(
+      children: [
+        // Toggle between following and recommendations
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: primaryGreen.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _getCategoryIcon(),
-                    color: primaryGreen,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _getCategoryTitle(),
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _showRecommendations = false),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: !_showRecommendations ? primaryGreen : Colors.transparent,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        bottomLeft: Radius.circular(12),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _getCategorySubtitle(),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                // Following Section
-                if (followingItems.isNotEmpty) ...[
-                  _buildSectionHeader('Following'),
-                  ...followingItems.map(
-                    (item) => _buildListItem(item, isFollowing: true),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                // Suggestions Section
-                if (notFollowingItems.isNotEmpty) ...[
-                  _buildSectionHeader('Suggestions'),
-                  ...notFollowingItems.map(
-                    (item) => _buildListItem(item, isFollowing: false),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildListItem(
-    Map<String, dynamic> item, {
-    required bool isFollowing,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isFollowing
-              ? primaryGreen.withOpacity(0.3)
-              : Theme.of(context).colorScheme.outlineVariant,
-          width: isFollowing ? 1.5 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            // Navigate to details
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // Logo/Icon
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: isFollowing
-                        ? primaryGreen.withOpacity(0.1)
-                        : Theme.of(context).colorScheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
+                    ),
                     child: Text(
-                      item['logo'],
-                      style: const TextStyle(fontSize: 28),
+                      'My Following',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: !_showRecommendations ? Colors.white : primaryGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                // Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item['name'],
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _showRecommendations = true),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _showRecommendations ? primaryGreen : Colors.transparent,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _getItemSubtitle(item),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    ),
+                    child: Text(
+                      'Discover',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _showRecommendations ? Colors.white : primaryGreen,
+                        fontWeight: FontWeight.w600,
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                // Follow/Unfollow Button
-                _buildFollowButton(item['id'], isFollowing),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
+        
+        // Content
+        Expanded(
+          child: _showRecommendations 
+              ? _buildRecommendationsList(currentRecommendations)
+              : _buildFollowingList(currentItems),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFollowingList(List<dynamic> items) {
+    if (items.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return _buildItemCard(item, isFollowing: true);
+      },
+    );
+  }
+
+  Widget _buildRecommendationsList(List<dynamic> recommendations) {
+    if (recommendations.isEmpty) {
+      return _buildNoRecommendationsState();
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: recommendations.length,
+      itemBuilder: (context, index) {
+        final item = recommendations[index];
+        return _buildItemCard(item, isFollowing: false);
+      },
+    );
+  }
+
+  Widget _buildNoRecommendationsState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.explore,
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No new recommendations',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'You\'re following all available items!',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildFollowButton(String id, bool isFollowing) {
-    return Container(
-      width: 100,
-      height: 36,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isFollowing
-              ? Theme.of(context).colorScheme.outlineVariant
-              : primaryGreen,
-          width: 1.5,
-        ),
-        color: isFollowing ? Colors.transparent : primaryGreen,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _toggleFollow(id),
-          borderRadius: BorderRadius.circular(20),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isFollowing ? Icons.check : Icons.add,
-                  size: 16,
-                  color: isFollowing
-                      ? Theme.of(context).colorScheme.onSurfaceVariant
-                      : Colors.white,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  isFollowing ? 'Following' : 'Follow',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isFollowing
-                        ? Theme.of(context).colorScheme.onSurfaceVariant
-                        : Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _getItemSubtitle(Map<String, dynamic> item) {
+  List<dynamic> _getCurrentRecommendations() {
     switch (_selectedCategory) {
-      case 0: // Players
-        return item['league'];
-      case 1: // Leagues
-        return item['sport'];
-      case 2: // Teams
-        return item['league'];
-      case 3: // Sports
-        return '';
+      case 0:
+        return _recommendedPlayers;
+      case 1:
+        return _recommendedLeagues;
+      case 2:
+        return _recommendedTeams;
+      case 3:
+        return _recommendedSports;
       default:
-        return '';
+        return [];
     }
   }
 
-  IconData _getCategoryIcon() {
+  List<dynamic> _getCurrentCategoryItems() {
+    switch (_selectedCategory) {
+      case 0:
+        return _followedPlayers;
+      case 1:
+        return _followedLeagues;
+      case 2:
+        return _followedTeams;
+      case 3:
+        return _followedSports;
+      default:
+        return [];
+    }
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _getEmptyIcon(),
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _getEmptyTitle(),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getEmptySubtitle(),
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getEmptyIcon() {
+    switch (_selectedCategory) {
+      case 0:
+        return Icons.person_outline;
+      case 1:
+        return Icons.emoji_events_outlined;
+      case 2:
+        return Icons.groups_outlined;
+      case 3:
+        return Icons.sports_outlined;
+      default:
+        return Icons.favorite_outline;
+    }
+  }
+
+  String _getEmptyTitle() {
+    switch (_selectedCategory) {
+      case 0:
+        return 'No Players Followed';
+      case 1:
+        return 'No Leagues Followed';
+      case 2:
+        return 'No Teams Followed';
+      case 3:
+        return 'No Sports Followed';
+      default:
+        return 'Nothing Found';
+    }
+  }
+
+  String _getEmptySubtitle() {
+    switch (_selectedCategory) {
+      case 0:
+        return 'Start following players to see them here';
+      case 1:
+        return 'Follow leagues to stay updated with competitions';
+      case 2:
+        return 'Follow your favorite teams for updates';
+      case 3:
+        return 'Choose your favorite sports to personalize content';
+      default:
+        return 'Follow content to see it here';
+    }
+  }
+
+  Widget _buildItemCard(dynamic item, {required bool isFollowing}) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: primaryGreen.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: Center(
+            child: _buildItemIcon(item),
+          ),
+        ),
+        title: Text(
+          item['name'] ?? item['title'] ?? 'Unknown',
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: _buildItemSubtitle(item),
+        trailing: isFollowing
+            ? IconButton(
+                onPressed: () => _showUnfollowDialog(item),
+                icon: Icon(
+                  Icons.favorite,
+                  color: Colors.red,
+                ),
+              )
+            : IconButton(
+                onPressed: () => _followItem(item),
+                icon: Icon(
+                  Icons.favorite_border,
+                  color: Colors.grey,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildItemIcon(dynamic item) {
     switch (_selectedCategory) {
       case 0: // Players
-        return Icons.people_outline;
+        return CircleAvatar(
+          backgroundColor: primaryGreen,
+          child: Text(
+            item['name']?.toString().substring(0, 1).toUpperCase() ?? 'P',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
       case 1: // Leagues
-        return Icons.emoji_events_outlined;
+        return Icon(
+          Icons.emoji_events,
+          color: primaryGreen,
+        );
       case 2: // Teams
-        return Icons.groups_outlined;
+        return Icon(
+          Icons.groups,
+          color: primaryGreen,
+        );
       case 3: // Sports
-        return Icons.sports_soccer_outlined;
+        return Icon(
+          Icons.sports,
+          color: primaryGreen,
+        );
       default:
-        return Icons.people_outline;
+        return Icon(
+          Icons.favorite,
+          color: primaryGreen,
+        );
+    }
+  }
+
+  Widget _buildItemSubtitle(dynamic item) {
+    switch (_selectedCategory) {
+      case 0: // Players
+        return Text(item['team_name'] ?? item['position'] ?? 'Player');
+      case 1: // Leagues
+        return Text(item['sport_name'] ?? 'League');
+      case 2: // Teams
+        return Text(item['league_name'] ?? item['sport_name'] ?? 'Team');
+      case 3: // Sports
+        return Text('${item['teams_count'] ?? 0} teams');
+      default:
+        return const Text('');
+    }
+  }
+
+  void _showUnfollowDialog(dynamic item) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unfollow'),
+        content: Text('Are you sure you want to unfollow ${item['name'] ?? 'this item'}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _unfollowItem(item);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Unfollow'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _followItem(dynamic item) async {
+    try {
+      switch (_selectedCategory) {
+        case 0: // Players
+          await ApiService.followPlayer(item['id']);
+          break;
+        case 1: // Leagues
+          await ApiService.followLeague(item['id']);
+          break;
+        case 2: // Teams
+          await ApiService.followTeam(item['id']);
+          break;
+        case 3: // Sports
+          await ApiService.followSport(item['id']);
+          break;
+      }
+      
+      // Refresh data
+      await _loadUserPreferences();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Following ${item['name'] ?? 'item'}'),
+          backgroundColor: primaryGreen,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error following item: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _unfollowItem(dynamic item) async {
+    try {
+      switch (_selectedCategory) {
+        case 0: // Players
+          await ApiService.unfollowPlayer(item['id']);
+          break;
+        case 1: // Leagues
+          await ApiService.unfollowLeague(item['id']);
+          break;
+        case 2: // Teams
+          await ApiService.unfollowTeam(item['id']);
+          break;
+        case 3: // Sports
+          await ApiService.unfollowSport(item['id']);
+          break;
+      }
+      
+      // Refresh data
+      await _loadUserPreferences();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unfollowed ${item['name'] ?? 'item'}'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error unfollowing item: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

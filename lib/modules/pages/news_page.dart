@@ -442,11 +442,34 @@ class _NewsPageState extends State<NewsPage> {
                     topRight: Radius.circular(16),
                   ),
                 ),
-                child: Center(
-                  child: Text(
-                    article.imageUrl,
-                    style: const TextStyle(fontSize: 64),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
                   ),
+                  child: article.imageUrl.isNotEmpty
+                      ? Image.network(
+                          article.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: sportColor.withOpacity(0.2),
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: sportColor,
+                                size: 40,
+                              ),
+                            );
+                          },
+                        )
+                      : Container(
+                          color: sportColor.withOpacity(0.2),
+                          child: Icon(
+                            Icons.article,
+                            color: sportColor,
+                            size: 40,
+                          ),
+                        ),
                 ),
               ),
               // Content

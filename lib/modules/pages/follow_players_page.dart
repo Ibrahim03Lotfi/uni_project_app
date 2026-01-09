@@ -1482,14 +1482,14 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
       onPressed: _followedPlayerIds.isNotEmpty
           ? () async {
               try {
-                // Convert string IDs to int IDs for API
-                final playerIds = _followedPlayerIds
-                    .map((id) => int.tryParse(id) ?? 0)
+                final playerIds = _allPlayers
+                    .where((player) => _followedPlayerIds.contains(player.id))
+                    .map((player) => int.tryParse(player.id) ?? 0)
                     .where((id) => id > 0)
                     .toList();
-
+                print('Saving players: $playerIds');
                 await ApiService.savePlayersPreferences(playerIds);
-
+                print('Players preferences saved successfully');
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => const WidgetTree()),

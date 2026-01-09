@@ -260,11 +260,13 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
     });
   }
 
-  Future<void> _onContinue() async {
+  Future<void> _onFinish() async {
     if (_selectedTeamIds.isEmpty) return;
 
     try {
+      print('Saving teams: ${_selectedTeamIds.toList()}');
       await ApiService.saveTeamsPreferences(_selectedTeamIds.toList());
+      print('Teams preferences saved successfully');
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -276,14 +278,10 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save team preferences: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      print('Error saving teams: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save teams preferences')),
+      );
     }
   }
 
@@ -596,7 +594,7 @@ class _FollowTeamsPageState extends State<FollowTeamsPage>
                 const Spacer(),
                 // Continue Button
                 ElevatedButton(
-                  onPressed: _selectedTeamIds.isNotEmpty ? _onContinue : null,
+                  onPressed: _selectedTeamIds.isNotEmpty ? _onFinish : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryGreen,
                     foregroundColor: Colors.white,

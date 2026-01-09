@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\NewsArticleController;
 use App\Http\Controllers\Api\GameMatchController;
 use App\Http\Controllers\Api\AdminManagementController;
+use App\Http\Controllers\PlayerController;
 
 Route::get('/test', function () {
     return response()->json(['message' => 'API is working!']);
@@ -26,8 +27,15 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/sports', [SportController::class, 'index']);
 Route::get('/sports/{sport}/leagues', [LeagueController::class, 'index']);
 Route::get('/leagues/{league}/teams', [TeamController::class, 'index']);
+Route::get('/teams/{team}/players', [PlayerController::class, 'index']);
+
 Route::get('/matches', [GameMatchController::class, 'index']);
 // Route::get('/teams/{team}/players', [PlayerController::class, 'index']);
+
+// Additional routes for recommendations
+Route::get('/leagues', [LeagueController::class, 'all']); // Get all leagues
+Route::get('/teams', [TeamController::class, 'all']); // Get all teams
+Route::get('/players', [PlayerController::class, 'all']); // Get all players
 
 // Protected routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -42,7 +50,27 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/sports', [UserPreferenceController::class, 'updateSports']);
         Route::post('/teams', [UserPreferenceController::class, 'updateTeams']);
         Route::post('/leagues', [UserPreferenceController::class, 'updateLeagues']);
+        Route::post('/players', [UserPreferenceController::class, 'updatePlayers']);
         Route::post('/', [UserPreferenceController::class, 'saveAll']); // Save all preferences at once
+    });
+
+    // Individual follow/unfollow routes
+    Route::prefix('user/preferences')->group(function () {
+        // Sports
+        Route::post('/sports', [UserPreferenceController::class, 'updateSports']);
+        Route::delete('/sports/{sportId}', [UserPreferenceController::class, 'unfollowSport']);
+        
+        // Leagues
+        Route::post('/leagues', [UserPreferenceController::class, 'updateLeagues']);
+        Route::delete('/leagues/{leagueId}', [UserPreferenceController::class, 'unfollowLeague']);
+        
+        // Teams
+        Route::post('/teams', [UserPreferenceController::class, 'updateTeams']);
+        Route::delete('/teams/{teamId}', [UserPreferenceController::class, 'unfollowTeam']);
+        
+        // Players
+        Route::post('/players', [UserPreferenceController::class, 'updatePlayers']);
+        Route::delete('/players/{playerId}', [UserPreferenceController::class, 'unfollowPlayer']);
     });
 
     // News/Posts routes

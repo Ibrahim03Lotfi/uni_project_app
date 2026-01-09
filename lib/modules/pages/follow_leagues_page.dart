@@ -46,17 +46,17 @@ class _FollowLeaguesPageState extends State<FollowLeaguesPage>
 
   Future<void> _fetchLeagues() async {
     try {
-      // Replace with your actual endpoint
-      final response = await http.get(
-        Uri.parse('${ApiService.baseUrl}/leagues'),
-        headers: await ApiService.headers,
-      );
+      List<dynamic> allLeagues = [];
 
-      if (response.statusCode == 200) {
-        setState(() {
-          _leagues = json.decode(response.body)['data'];
-        });
+      // Fetch leagues for each selected sport
+      for (int sportId in widget.selectedSportIds) {
+        final leagues = await ApiService.getLeaguesBySport(sportId);
+        allLeagues.addAll(leagues);
       }
+
+      setState(() {
+        _leagues = allLeagues;
+      });
     } catch (e) {
       print('Error fetching leagues: $e');
     }
@@ -64,14 +64,19 @@ class _FollowLeaguesPageState extends State<FollowLeaguesPage>
 
   void _onFinish() async {
     try {
+      print('Saving leagues: ${_selectedLeagueIds.toList()}');
       await ApiService.saveLeaguesPreferences(_selectedLeagueIds.toList());
+      print('Leagues preferences saved successfully');
     } catch (e) {
+      print('Error saving leagues: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to save league preferences')),
       );
+      return;
     }
 
     // Navigate to teams selection
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
