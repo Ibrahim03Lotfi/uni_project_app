@@ -48,6 +48,36 @@ class NewsArticleController extends Controller
             }
         ]);
 
+        $posts = $query->latest()->paginate(10);
+
+        return NewsArticleResource::collection($posts);
+    }
+
+    /**
+     * Get posts for the current admin only.
+     */
+    public function myPosts(Request $request)
+    {
+        $user = $request->user();
+
+        // Only admins can access this endpoint
+        if (!$user->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized. Admins only.'], 403);
+        }
+
+        $query = NewsArticle::with(['author', 'sport', 'team'])
+            ->withCount('likes')
+            ->where('author_id', $user->id);
+
+        // Check if current user liked the post
+        $query->addSelect([
+            'is_liked' => function ($query) use ($user) {
+                $query->selectRaw('count(*)')
+                    ->from('article_likes')
+                    ->whereColumn('article_id', 'news_articles.id')
+                    ->where('user_id', $user->id);
+            }
+        ]);
 
         $posts = $query->latest()->paginate(10);
 
@@ -152,6 +182,74 @@ class NewsArticleController extends Controller
             'message' => $message,
             'liked' => $liked,
             'likes_count' => $article->likes()->count()
+        ]);
+    }
+
+    /**
+     * Update a news article.
+     */
+    public function update(Request $request, $id)
+    {
+        $user = $request->user();
+        $article = NewsArticle::findOrFail($id);
+
+        // Check if user is Admin or Super Admin
+        if (!$user->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized. Admins only.'], 403);
+        }
+
+        // Admin Logic: Verify assigned sport
+        if (!$user->isSuperAdmin() && $user->assigned_sport_id != $article->sport_id) {
+            return response()->json(['message' => 'You can only edit news for your assigned sport.'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'title' => 'required|string|max:255',
+            'description' => 'sometimes|string',
+            'content' => 'required|string',
+            'sport_id' => 'sometimes|exists:sports,id',
+            'team_id' => 'nullable|exists:teams,id',
+            'category' => 'sometimes|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $article->update([
+            'title' => $request->title,
+            'description' => $request->description ?? $request->content,
+            'content' => $request->content,
+            'category' => $request->category ?? 'General',
+            'sport_id' => $request->sport_id ?? $article->sport_id,
+            'team_id' => $request->team_id ?? $article->team_id,
+        ]);
+
+        return new NewsArticleResource($article);
+    }
+
+    /**
+     * Delete a news article.
+     */
+    public function destroy(Request $request, $id)
+    {
+        $user = $request->user();
+        $article = NewsArticle::findOrFail($id);
+
+        // Check if user is Admin or Super Admin
+        if (!$user->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized. Admins only.'], 403);
+        }
+
+        // Admin Logic: Verify assigned sport
+        if (!$user->isSuperAdmin() && $user->assigned_sport_id != $article->sport_id) {
+            return response()->json(['message' => 'You can only delete news for your assigned sport.'], 403);
+        }
+
+        $article->delete();
+
+        return response()->json([
+            'message' => 'News article deleted successfully'
         ]);
     }
 }

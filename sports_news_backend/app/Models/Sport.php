@@ -32,4 +32,9 @@ class Sport extends Model
     {
         return $this->hasMany(Player::class);
     }
+
+    public function newsArticles()
+    {
+        return $this->hasMany(NewsArticle::class, 'sport_id');
+    }
 }

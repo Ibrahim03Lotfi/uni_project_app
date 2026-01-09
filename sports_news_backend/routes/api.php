@@ -72,7 +72,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // News/Posts routes
     Route::get('/feed', [NewsArticleController::class, 'index']); // User News Feed
     Route::get('/posts/search', [NewsArticleController::class, 'search']); // Search
+    Route::get('/my-posts', [NewsArticleController::class, 'myPosts'])->middleware('role:admin'); // Admin's posts only
     Route::post('/posts', [NewsArticleController::class, 'store'])->middleware('role:admin'); // Create News - Admin only
+    Route::put('/posts/{id}', [NewsArticleController::class, 'update'])->middleware('role:admin'); // Update News - Admin only
+    Route::delete('/posts/{id}', [NewsArticleController::class, 'destroy'])->middleware('role:admin'); // Delete News - Admin only
     Route::post('/posts/{id}/like', [NewsArticleController::class, 'toggleLike']); // Toggle like
 
     // Super Admin only routes
@@ -81,5 +84,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users', [AdminManagementController::class, 'getUsers']); // Get all users
         Route::delete('/users/{id}', [AdminManagementController::class, 'deleteUser']); // Delete user
         Route::get('/sports/assignment', [AdminManagementController::class, 'getSportsForAssignment']); // Get sports for assignment
+        Route::post('/sports', [SportController::class, 'store']); // Create new sport
+        Route::put('/sports/{id}', [SportController::class, 'update']); // Update sport
+        Route::delete('/sports/{id}', [SportController::class, 'destroy']); // Delete sport
     });
 });

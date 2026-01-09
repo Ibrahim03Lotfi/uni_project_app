@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sports_news_app/data/notifiers.dart';
 import 'package:sports_news_app/modules/pages/welcome_page.dart';
 
@@ -30,10 +31,28 @@ class MyApp extends StatelessWidget {
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,
+          locale: const Locale('en', 'US'),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en', 'US'),
+            Locale('en', 'GB'),
+          ],
           themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: lightScheme,
+            fontFamily: 'Roboto',
+            iconTheme: const IconThemeData(
+              size: 24,
+              fill: 0.0,
+              weight: 400,
+              grade: 0,
+              opticalSize: 24,
+            ),
             scaffoldBackgroundColor: lightScheme.surface,
             appBarTheme: AppBarTheme(
               backgroundColor: lightScheme.surface,
@@ -51,6 +70,14 @@ class MyApp extends StatelessWidget {
           darkTheme: ThemeData(
             useMaterial3: true,
             colorScheme: darkScheme,
+            fontFamily: 'Roboto',
+            iconTheme: const IconThemeData(
+              size: 24,
+              fill: 0.0,
+              weight: 400,
+              grade: 0,
+              opticalSize: 24,
+            ),
             scaffoldBackgroundColor: darkScheme.surface,
             appBarTheme: AppBarTheme(
               backgroundColor: darkScheme.surface,

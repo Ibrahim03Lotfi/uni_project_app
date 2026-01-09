@@ -216,7 +216,7 @@ class ApiService {
 
   // Get user preferences
   static Future<Map<String, dynamic>> getUserPreferences() async {
-    final url = Uri.parse('$baseUrl/user/preferences');
+    final url = Uri.parse('$baseUrl/preferences');
     final response = await http.get(url, headers: await headers);
     if (response.statusCode == 200) {
       return json.decode(response.body);
@@ -225,7 +225,7 @@ class ApiService {
     }
   }
 
-  // Get News Feed
+  // Get User's News Feed
   static Future<List<dynamic>> getNewsFeed() async {
     final url = Uri.parse('$baseUrl/feed');
     final response = await http.get(url, headers: await headers);
@@ -235,6 +235,19 @@ class ApiService {
       return data['data']; // Resource collection returns 'data' array
     } else {
       throw Exception('Failed to load news feed');
+    }
+  }
+
+  // Get Admin's Posts Only
+  static Future<List<dynamic>> getMyPosts() async {
+    final url = Uri.parse('$baseUrl/my-posts');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['data']; // Resource collection returns 'data' array
+    } else {
+      throw Exception('Failed to load my posts');
     }
   }
 
@@ -271,6 +284,47 @@ class ApiService {
       return json.decode(responseBody);
     } else {
       throw Exception('Failed to create post: $responseBody');
+    }
+  }
+
+  // Update News Post (Admin)
+  static Future<Map<String, dynamic>> updatePost({
+    required int id,
+    required String title,
+    required String description,
+    required String content,
+    required int sportId,
+    required String category,
+    int? teamId,
+  }) async {
+    final url = Uri.parse('$baseUrl/posts/$id');
+    final response = await http.put(
+      url,
+      headers: await headers,
+      body: json.encode({
+        'title': title,
+        'description': description,
+        'content': content,
+        'sport_id': sportId,
+        'category': category,
+        if (teamId != null) 'team_id': teamId,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to update post: ${response.body}');
+    }
+  }
+
+  // Delete News Post (Admin)
+  static Future<void> deletePost(int postId) async {
+    final url = Uri.parse('$baseUrl/posts/$postId');
+    final response = await http.delete(url, headers: await headers);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete post: ${response.body}');
     }
   }
 
@@ -537,6 +591,65 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to follow player');
+    }
+  }
+
+  // Super Admin: Create sport
+  static Future<Map<String, dynamic>> createSport({
+    required String name,
+    String? description,
+    String? icon,
+  }) async {
+    final url = Uri.parse('$baseUrl/admin/sports');
+    final response = await http.post(
+      url,
+      headers: await headers,
+      body: json.encode({
+        'name': name,
+        'description': description,
+        'icon': icon,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to create sport');
+    }
+  }
+
+  // Super Admin: Update sport
+  static Future<Map<String, dynamic>> updateSport({
+    required int id,
+    required String name,
+    String? description,
+    String? icon,
+  }) async {
+    final url = Uri.parse('$baseUrl/admin/sports/$id');
+    final response = await http.put(
+      url,
+      headers: await headers,
+      body: json.encode({
+        'name': name,
+        'description': description,
+        'icon': icon,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to update sport');
+    }
+  }
+
+  // Super Admin: Delete sport
+  static Future<void> deleteSport(int id) async {
+    final url = Uri.parse('$baseUrl/admin/sports/$id');
+    final response = await http.delete(url, headers: await headers);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete sport');
     }
   }
 

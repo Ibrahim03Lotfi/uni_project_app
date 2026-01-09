@@ -19,6 +19,7 @@ class UserPreferenceController extends Controller
             'sports' => $user->preferredSports()->get(),
             'teams' => $user->preferredTeams()->get(),
             'leagues' => $user->preferredLeagues()->get(),
+            'players' => $user->preferredPlayers()->get(),
         ]);
     }
 

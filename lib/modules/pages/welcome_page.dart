@@ -811,64 +811,193 @@ class SuperAdminDashboardPage extends StatefulWidget {
   const SuperAdminDashboardPage({super.key});
 
   @override
-  State<SuperAdminDashboardPage> createState() =>
-      _SuperAdminDashboardPageState();
+  State<SuperAdminDashboardPage> createState() => _SuperAdminDashboardPageState();
 }
 
 class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _sportFormKey = GlobalKey<FormState>();
+  
+  // Admin creation form controllers
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  int? _selectedSportId;
+  
+  // Sport creation form controllers
+  final _sportNameController = TextEditingController();
+  final _sportDescriptionController = TextEditingController();
+  final _sportIconController = TextEditingController();
+  
+  List<dynamic> _sports = [];
+  List<dynamic> _users = [];
+  bool _isLoading = false;
+  bool _isLoadingUsers = false;
   int _selectedTab = 0;
   final Color _adminColor = const Color(0xFF9C27B0);
 
-  final List<Map<String, dynamic>> _mockAdmins = [
-    {
-      'id': '1',
-      'name': 'John Doe',
-      'email': 'john@admin.com',
-      'sport': 'Football',
-      'status': 'Active',
-    },
-    {
-      'id': '2',
-      'name': 'Sarah Smith',
-      'email': 'sarah@admin.com',
-      'sport': 'Basketball',
-      'status': 'Active',
-    },
-    {
-      'id': '3',
-      'name': 'Mike Johnson',
-      'email': 'mike@admin.com',
-      'sport': 'Tennis',
-      'status': 'Inactive',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadSports();
+    _loadUsers();
+  }
 
-  final List<Map<String, dynamic>> _mockSports = [
-    {
-      'id': '1',
-      'name': 'Football',
-      'icon': Icons.sports_soccer,
-      'posts': 45,
-      'leagues': 12,
-      'admins': 3,
-    },
-    {
-      'id': '2',
-      'name': 'Basketball',
-      'icon': Icons.sports_basketball,
-      'posts': 32,
-      'leagues': 8,
-      'admins': 2,
-    },
-    {
-      'id': '3',
-      'name': 'Tennis',
-      'icon': Icons.sports_tennis,
-      'posts': 28,
-      'leagues': 6,
-      'admins': 1,
-    },
-  ];
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _sportNameController.dispose();
+    _sportDescriptionController.dispose();
+    _sportIconController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSports() async {
+    setState(() => _isLoading = true);
+    try {
+      final sports = await ApiService.getSportsForAssignment();
+      setState(() {
+        _sports = sports;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading sports: $e')),
+      );
+    }
+  }
+
+  Future<void> _loadUsers() async {
+    setState(() => _isLoadingUsers = true);
+    try {
+      final usersData = await ApiService.getAllUsers();
+      setState(() {
+        _users = usersData['data'] ?? [];
+        _isLoadingUsers = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingUsers = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading users: $e')),
+      );
+    }
+  }
+
+  Future<void> _createAdmin() async {
+    if (!_formKey.currentState!.validate() || _selectedSportId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all fields and select a sport')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await ApiService.createAdmin(
+        name: _nameController.text,
+        email: _emailController.text,
+        password: _passwordController.text,
+        assignedSportId: _selectedSportId!,
+      );
+      
+      _nameController.clear();
+      _emailController.clear();
+      _passwordController.clear();
+      _selectedSportId = null;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Admin created successfully')),
+      );
+      _loadUsers();
+      Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating admin: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _createSport() async {
+    if (!_sportFormKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await ApiService.createSport(
+        name: _sportNameController.text,
+        description: _sportDescriptionController.text.isEmpty ? null : _sportDescriptionController.text,
+        icon: _sportIconController.text.isEmpty ? null : _sportIconController.text,
+      );
+      
+      _sportNameController.clear();
+      _sportDescriptionController.clear();
+      _sportIconController.clear();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sport created successfully')),
+      );
+      _loadSports();
+      Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating sport: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _deleteUser(int userId) async {
+    try {
+      await ApiService.deleteUser(userId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User deleted successfully')),
+      );
+      _loadUsers();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting user: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteSport(int sportId) async {
+    try {
+      await ApiService.deleteSport(sportId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sport deleted successfully')),
+      );
+      _loadSports();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting sport: $e')),
+      );
+    }
+  }
+
+  Future<void> _logout() async {
+    try {
+      await ApiService.logout();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const WelcomePage()),
+          (Route<dynamic> route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error during logout: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -897,9 +1026,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
         ),
         actions: [
           IconButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
+            onPressed: _logout,
             icon: const Icon(Icons.logout),
           ),
         ],
@@ -963,7 +1090,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
           ),
           const SizedBox(height: 24),
 
-          // Stats Cards - FIXED: Using LayoutBuilder for responsive grid
+          // Stats Cards
           LayoutBuilder(
             builder: (context, constraints) {
               final cardWidth = constraints.maxWidth / 2 - 20;
@@ -976,7 +1103,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Total Admins',
-                          '${_mockAdmins.length}',
+                          '${_users.where((u) => u['role'] == 'admin').length}',
                           Icons.admin_panel_settings,
                           Colors.purple,
                         ),
@@ -985,7 +1112,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Total Sports',
-                          '${_mockSports.length}',
+                          '${_sports.length}',
                           Icons.sports,
                           const Color(0xFF43A047),
                         ),
@@ -999,8 +1126,8 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                       SizedBox(
                         width: cardWidth,
                         child: _buildStatCard(
-                          'Active Admins',
-                          '${_mockAdmins.where((a) => a['status'] == 'Active').length}',
+                          'Total Users',
+                          '${_users.length}',
                           Icons.people,
                           Colors.blue,
                         ),
@@ -1008,9 +1135,9 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                       SizedBox(
                         width: cardWidth,
                         child: _buildStatCard(
-                          'Total Posts',
-                          '127',
-                          Icons.newspaper,
+                          'Super Admins',
+                          '${_users.where((u) => u['role'] == 'super_admin').length}',
+                          Icons.supervisor_account,
                           Colors.orange,
                         ),
                       ),
@@ -1041,7 +1168,6 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
             Icons.add_circle_outline,
             _showAddSportDialog,
           ),
-          _buildQuickActionButton('System Settings', Icons.settings, () {}),
         ],
       ),
     );
@@ -1067,101 +1193,86 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _mockAdmins.length,
-            itemBuilder: (context, index) {
-              final admin = _mockAdmins[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  leading: CircleAvatar(
-                    backgroundColor: _adminColor.withOpacity(0.1),
-                    child: Icon(Icons.person, color: _adminColor),
-                  ),
-                  title: Text(
-                    admin['name']!,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 4),
-                      Text(admin['email']!),
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+          child: _isLoadingUsers
+              ? const Center(child: CircularProgressIndicator())
+              : _users.isEmpty
+                  ? const Center(child: Text('No users found'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _users.length,
+                      itemBuilder: (context, index) {
+                        final user = _users[index];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            leading: CircleAvatar(
+                              backgroundColor: _adminColor.withOpacity(0.1),
+                              child: Icon(Icons.person, color: _adminColor),
                             ),
-                            decoration: BoxDecoration(
-                              color: _getSportColor(
-                                admin['sport']!,
-                              ).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
+                            title: Text(
+                              user['name'] ?? 'Unknown',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
                             ),
-                            child: Text(
-                              admin['sport']!,
-                              style: TextStyle(
-                                color: _getSportColor(admin['sport']!),
-                                fontSize: 12,
-                              ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Text(user['email'] ?? 'No email'),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _getRoleColor(user['role']).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        user['role']?.toString().toUpperCase() ?? 'UNKNOWN',
+                                        style: TextStyle(
+                                          color: _getRoleColor(user['role']),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    if (user['assigned_sport']?['name'] != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          user['assigned_sport']['name'],
+                                          style: const TextStyle(
+                                            color: Colors.green,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
                             ),
+                            trailing: user['role'] != 'super_admin'
+                                ? IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () => _showDeleteConfirmation(user['id'], user['name']),
+                                  )
+                                : null,
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: admin['status'] == 'Active'
-                                  ? Colors.green.withOpacity(0.1)
-                                  : Colors.red.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              admin['status']!,
-                              style: TextStyle(
-                                color: admin['status'] == 'Active'
-                                    ? Colors.green
-                                    : Colors.red,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  trailing: PopupMenuButton(
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                      PopupMenuItem(
-                        value: 'toggle_status',
-                        child: Text(
-                          admin['status'] == 'Active'
-                              ? 'Deactivate'
-                              : 'Activate',
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text(
-                          'Delete',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
+                        );
+                      },
+                    ),
         ),
       ],
     );
@@ -1187,62 +1298,54 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _mockSports.length,
-            itemBuilder: (context, index) {
-              final sport = _mockSports[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  leading: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _getSportColor(sport['name']!).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _sports.isEmpty
+                  ? const Center(child: Text('No sports found'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _sports.length,
+                      itemBuilder: (context, index) {
+                        final sport = _sports[index];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            leading: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.sports,
+                                color: Colors.green,
+                              ),
+                            ),
+                            title: Text(
+                              sport['name'] ?? 'Unknown',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: sport['description'] != null
+                                ? Text(sport['description'])
+                                : null,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  onPressed: () => _showEditSportDialog(sport),
+                                  icon: Icon(Icons.edit, color: _adminColor),
+                                ),
+                                IconButton(
+                                  onPressed: () => _showDeleteSportConfirmation(sport['id'], sport['name']),
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    child: Icon(
-                      sport['icon'] as IconData,
-                      color: _getSportColor(sport['name']!),
-                    ),
-                  ),
-                  title: Text(
-                    sport['name']!,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 8,
-                        children: [
-                          _buildSportStat('Posts', sport['posts']),
-                          _buildSportStat('Leagues', sport['leagues']),
-                          _buildSportStat('Admins', sport['admins']),
-                        ],
-                      ),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        onPressed: () => _showEditSportDialog(sport),
-                        icon: Icon(Icons.edit, color: _adminColor),
-                      ),
-                      IconButton(
-                        onPressed: () => _showDeleteSportDialog(sport['id']!),
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
         ),
       ],
     );
@@ -1256,24 +1359,24 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   ) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12), // Reduced padding
+        padding: const EdgeInsets.all(12),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(8), // Reduced padding
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 20), // Smaller icon
+              child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(height: 8), // Reduced spacing
+            const SizedBox(height: 8),
             Text(
               value,
               style: const TextStyle(
-                fontSize: 20, // Smaller font
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1283,7 +1386,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 11, // Smaller font
+                fontSize: 11,
               ),
             ),
           ],
@@ -1321,38 +1424,12 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
     );
   }
 
-  Widget _buildSportStat(String label, dynamic value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 11, // Smaller font
-          ),
-        ),
-        Text(
-          value.toString(),
-          style: const TextStyle(
-            fontSize: 14, // Smaller font
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Color _getSportColor(String sport) {
-    switch (sport.toLowerCase()) {
-      case 'football':
-        return const Color(0xFF43A047);
-      case 'basketball':
-        return Colors.orange[700]!;
-      case 'tennis':
-        return Colors.yellow[800]!;
-      case 'volleyball':
-        return Colors.blue[700]!;
+  Color _getRoleColor(String? role) {
+    switch (role) {
+      case 'super_admin':
+        return Colors.red;
+      case 'admin':
+        return Colors.purple;
       default:
         return Colors.grey;
     }
@@ -1361,11 +1438,112 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   void _showAddAdminDialog() {
     showDialog(
       context: context,
-      builder: (context) => AddAdminDialog(
-        onAdd: (adminData) {
-          print('Adding admin: $adminData');
-          Navigator.pop(context);
-        },
+      builder: (context) => AlertDialog(
+        title: const Text('Create New Admin'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Admin Name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter admin name';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter email';
+                    }
+                    if (!value.contains('@')) {
+                      return 'Please enter a valid email';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                    border: OutlineInputBorder(),
+                  ),
+                  obscureText: true,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  decoration: const InputDecoration(
+                    labelText: 'Assign Sport',
+                    border: OutlineInputBorder(),
+                  ),
+                  value: _selectedSportId,
+                  items: _sports.map((sport) {
+                    return DropdownMenuItem<int>(
+                      value: sport['id'],
+                      child: Text(sport['name']),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedSportId = value;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null) {
+                      return 'Please select a sport';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _createAdmin,
+            style: ElevatedButton.styleFrom(backgroundColor: _adminColor),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Create Admin'),
+          ),
+        ],
       ),
     );
   }
@@ -1373,49 +1551,227 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   void _showAddSportDialog() {
     showDialog(
       context: context,
-      builder: (context) => AddSportDialog(
-        onAdd: (sportData) {
-          print('Adding sport: $sportData');
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  void _showEditSportDialog(Map<String, dynamic> sport) {
-    showDialog(
-      context: context,
-      builder: (context) => AddSportDialog(
-        onAdd: (sportData) async {
-          print('Updating sport: $sportData');
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  void _showDeleteSportDialog(String sportId) {
-    showDialog(
-      context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Sport'),
-        content: const Text(
-          'Are you sure you want to delete this sport? This action cannot be undone.',
+        title: const Text('Create New Sport'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: _sportFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _sportNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Sport Name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter sport name';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _sportDescriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _sportIconController,
+                  decoration: const InputDecoration(
+                    labelText: 'Icon (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          TextButton(
-            onPressed: () {
-              print('Deleting sport: $sportId');
-              Navigator.pop(context);
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ElevatedButton(
+            onPressed: _isLoading ? null : _createSport,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Create Sport'),
           ),
         ],
       ),
+    );
+  }
+
+  void _showEditSportDialog(Map<String, dynamic> sport) {
+    // Pre-fill the form with existing sport data
+    _sportNameController.text = sport['name'] ?? '';
+    _sportDescriptionController.text = sport['description'] ?? '';
+    _sportIconController.text = sport['icon'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Sport'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: _sportFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _sportNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Sport Name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter sport name';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _sportDescriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _sportIconController,
+                  decoration: const InputDecoration(
+                    labelText: 'Icon (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: _isLoading ? null : () => _updateSport(sport['id']),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Update Sport'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateSport(int sportId) async {
+    if (!_sportFormKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await ApiService.updateSport(
+        id: sportId,
+        name: _sportNameController.text,
+        description: _sportDescriptionController.text.isEmpty ? null : _sportDescriptionController.text,
+        icon: _sportIconController.text.isEmpty ? null : _sportIconController.text,
+      );
+      
+      _sportNameController.clear();
+      _sportDescriptionController.clear();
+      _sportIconController.clear();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sport updated successfully')),
+      );
+      _loadSports();
+      Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating sport: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showDeleteSportConfirmation(int sportId, String sportName) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Sport'),
+          content: Text('Are you sure you want to delete sport "$sportName"? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteSport(sportId);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmation(int userId, String userName) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete User'),
+          content: Text('Are you sure you want to delete user "$userName"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteUser(userId);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1436,22 +1792,29 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final Color _adminColor = const Color(0xFF9C27B0);
 
   // Admin state variables - initialize from widget
-  String? _userRole;
   String? _adminSportName;
-  String? _selectedSport;
+  String? _adminName;
+  
+  // Real data variables
+  List<dynamic> _posts = [];
+  List<dynamic> _sports = [];
+  bool _isLoadingPosts = false;
 
   @override
   void initState() {
     super.initState();
     // Initialize admin info from widget
-    _userRole = widget.userRole;
     _adminSportName = widget.adminSportName;
+    _loadUserData();
+    _loadSports();
+    _loadPosts();
   }
 
   // Create Tab State
   final _createFormKey = GlobalKey<FormState>();
   final _createTitleController = TextEditingController();
-  final _createBodyController = TextEditingController();
+  final _createDescriptionController = TextEditingController();
+  final _createContentController = TextEditingController();
   XFile? _createSelectedImage;
   bool _isCreateLoading = false;
   final ImagePicker _picker = ImagePicker();
@@ -1459,43 +1822,68 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   @override
   void dispose() {
     _createTitleController.dispose();
-    _createBodyController.dispose();
+    _createDescriptionController.dispose();
+    _createContentController.dispose();
     super.dispose();
   }
 
-  final List<Map<String, dynamic>> _mockPosts = [
-    {
-      'id': '1',
-      'title': 'Football Championship Final',
-      'body': 'The final match was held yesterday with amazing performance...',
-      'sport': 'Football',
-      'time': '2 hours ago',
-      'likes': 245,
-      'author': 'Admin John',
-    },
-    {
-      'id': '2',
-      'title': 'Basketball League Updates',
-      'body': 'New updates from the basketball league season...',
-      'sport': 'Basketball',
-      'time': '5 hours ago',
-      'likes': 189,
-      'author': 'Admin Mike',
-    },
-    {
-      'id': '3',
-      'title': 'Tennis Tournament Results',
-      'body': 'Results from the international tennis tournament...',
-      'sport': 'Tennis',
-      'time': '1 day ago',
-      'likes': 312,
-      'author': 'Admin Sarah',
-    },
-  ];
-@override
-Widget build(BuildContext context) {
-  final myPosts = _mockPosts;
+  Future<void> _loadUserData() async {
+    try {
+      final userData = await ApiService.getUser();
+      setState(() {
+        _adminName = userData['name'];
+      });
+    } catch (e) {
+      // Handle error silently for now
+    }
+  }
 
+  Future<void> _loadSports() async {
+    try {
+      final sports = await ApiService.getSports();
+      setState(() {
+        _sports = sports;
+      });
+    } catch (e) {
+      // Handle error silently for now
+    }
+  }
+
+  Future<void> _loadPosts() async {
+    setState(() => _isLoadingPosts = true);
+    try {
+      // Get only the current admin's posts
+      final myPosts = await ApiService.getMyPosts();
+      setState(() {
+        _posts = myPosts;
+        _isLoadingPosts = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingPosts = false);
+      // Handle error silently for now
+    }
+  }
+
+  Future<void> _logout() async {
+    try {
+      await ApiService.logout();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const WelcomePage()),
+          (Route<dynamic> route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error during logout: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(
       title: Row(
@@ -1516,40 +1904,34 @@ Widget build(BuildContext context) {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: _adminColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.admin_panel_settings,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(height: 4),
               Text(
                 'Admin Dashboard',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
+              if (_adminSportName != null)
+                Text(
+                  _adminSportName!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
             ],
           ),
         ],
       ),
       actions: [
         IconButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: _logout,
           icon: const Icon(Icons.logout),
         ),
       ],
     ),
-    body: _buildTabContent(myPosts),
+    body: _buildTabContent(),
     bottomNavigationBar: BottomNavigationBar(
       currentIndex: _selectedTab,
       onTap: (index) {
@@ -1582,27 +1964,27 @@ Widget build(BuildContext context) {
   );
 }
 
-  Widget _buildTabContent(List<Map<String, dynamic>> myPosts) {
+  Widget _buildTabContent() {
     switch (_selectedTab) {
       case 0:
-        return _buildDashboardTab(myPosts);
+        return _buildDashboardTab();
       case 1:
-        return _buildPostsTab(myPosts);
+        return _buildPostsTab();
       case 2:
         return _buildCreateTab();
       default:
-        return _buildDashboardTab(myPosts);
+        return _buildDashboardTab();
     }
   }
 
-  Widget _buildDashboardTab(List<Map<String, dynamic>> myPosts) {
+  Widget _buildDashboardTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Welcome, Admin',
+            'Welcome, ${_adminName ?? 'Admin'}',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -1611,14 +1993,14 @@ Widget build(BuildContext context) {
           ),
           const SizedBox(height: 8),
           Text(
-            'You can manage posts for All Sports',
+            'You can manage posts for ${_adminSportName ?? 'your assigned sport'}',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 24),
 
-          // Stats Cards - FIXED: Using LayoutBuilder for responsive grid
+          // Stats Cards with real data
           LayoutBuilder(
             builder: (context, constraints) {
               final cardWidth = constraints.maxWidth / 2 - 20;
@@ -1631,7 +2013,7 @@ Widget build(BuildContext context) {
                         width: cardWidth,
                         child: _buildStatCard(
                           'My Posts',
-                          '${myPosts.length}',
+                          '${_posts.length}',
                           Icons.newspaper,
                           Colors.blue,
                         ),
@@ -1640,7 +2022,7 @@ Widget build(BuildContext context) {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Total Likes',
-                          '${myPosts.fold(0, (sum, post) => sum + (post['likes'] as int))}',
+                          '${_posts.fold<int>(0, (sum, post) => sum + ((post['likes'] as int?) ?? 0))}',
                           Icons.thumb_up,
                           Colors.green,
                         ),
@@ -1655,7 +2037,7 @@ Widget build(BuildContext context) {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Today\'s Posts',
-                          '${myPosts.where((p) => p['time'].contains('hours')).length}',
+                          '${_posts.where((p) => _isToday(p['created_at'])).length}',
                           Icons.today,
                           Colors.orange,
                         ),
@@ -1664,7 +2046,7 @@ Widget build(BuildContext context) {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Engagement',
-                          '${myPosts.isNotEmpty ? (myPosts.fold(0, (sum, post) => sum + (post['likes'] as int)) ~/ myPosts.length) : 0}',
+                          '${_posts.isNotEmpty ? (_posts.fold<int>(0, (sum, post) => sum + ((post['likes'] as int?) ?? 0)) ~/ _posts.length) : 0}',
                           Icons.trending_up,
                           Colors.purple,
                         ),
@@ -1686,7 +2068,9 @@ Widget build(BuildContext context) {
             ),
           ),
           const SizedBox(height: 12),
-          if (myPosts.isEmpty)
+          if (_isLoadingPosts)
+            const Center(child: CircularProgressIndicator())
+          else if (_posts.isEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -1707,7 +2091,7 @@ Widget build(BuildContext context) {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "Create your first post for 'All Sports'",
+                      "Create your first post for '${_adminSportName ?? 'your sport'}'",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1726,14 +2110,29 @@ Widget build(BuildContext context) {
               ),
             )
           else
-            ...myPosts.take(2).map((post) => _buildPostCard(post)).toList(),
+            ..._posts.take(2).map((post) => _buildPostCard(post)).toList(),
         ],
       ),
     );
   }
 
-  Widget _buildPostsTab(List<Map<String, dynamic>> myPosts) {
-    if (myPosts.isEmpty) {
+  bool _isToday(String? createdAt) {
+    if (createdAt == null) return false;
+    try {
+      final date = DateTime.parse(createdAt);
+      final now = DateTime.now();
+      return date.day == now.day && date.month == now.month && date.year == now.year;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Widget _buildPostsTab() {
+    if (_isLoadingPosts) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_posts.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1753,7 +2152,7 @@ Widget build(BuildContext context) {
             ),
             const SizedBox(height: 8),
             Text(
-              "Create your first post for 'All Sports'",
+              "Create your first post for '${_adminSportName ?? 'your sport'}'",
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1763,13 +2162,16 @@ Widget build(BuildContext context) {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: myPosts.length,
-      itemBuilder: (context, index) {
-        final post = myPosts[index];
-        return _buildPostCard(post);
-      },
+    return RefreshIndicator(
+      onRefresh: _loadPosts,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _posts.length,
+        itemBuilder: (context, index) {
+          final post = _posts[index];
+          return _buildPostCard(post);
+        },
+      ),
     );
   }
 
@@ -1791,7 +2193,7 @@ Widget build(BuildContext context) {
             ),
             const SizedBox(height: 8),
             Text(
-              "Create a new post for 'All Sports'",
+              "Create a new post for '${_adminSportName ?? 'your sport'}'",
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1817,7 +2219,21 @@ Widget build(BuildContext context) {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
-                      controller: _createBodyController,
+                      controller: _createDescriptionController,
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Please enter a description'
+                          : null,
+                      decoration: InputDecoration(
+                        labelText: 'Post Description',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _createContentController,
                       validator: (value) => value == null || value.isEmpty
                           ? 'Please enter content'
                           : null,
@@ -1935,30 +2351,20 @@ Widget build(BuildContext context) {
     if (_createFormKey.currentState!.validate()) {
       setState(() => _isCreateLoading = true);
       try {
-        int sportId;
-        // Use the selected sport from admin login, not hardcoded
-        final selectedSport = _userRole == 'super_admin' ? _selectedSport : _adminSportName;
-        switch (selectedSport?.toLowerCase()) {
-          case 'football':
-            sportId = 1;
-            break;
-          case 'basketball':
-            sportId = 2;
-            break;
-          case 'tennis':
-            sportId = 3;
-            break;
-          case 'volleyball':
-            sportId = 4;
-            break;
-          default:
-            sportId = 1;
+        // Find the sport ID for the admin's assigned sport
+        int sportId = 1; // Default fallback
+        if (_adminSportName != null && _sports.isNotEmpty) {
+          final sport = _sports.firstWhere(
+            (s) => s['name'].toString().toLowerCase() == _adminSportName!.toLowerCase(),
+            orElse: () => _sports.first,
+          );
+          sportId = sport['id'] ?? 1;
         }
 
         await ApiService.createPost(
           title: _createTitleController.text,
-          description: _createBodyController.text,
-          content: _createBodyController.text,
+          description: _createDescriptionController.text,
+          content: _createContentController.text,
           sportId: sportId,
           category: 'General',
           imagePath: _createSelectedImage?.path,
@@ -1970,11 +2376,14 @@ Widget build(BuildContext context) {
           );
           // Clear form
           _createTitleController.clear();
-          _createBodyController.clear();
+          _createDescriptionController.clear();
+          _createContentController.clear();
           setState(() {
             _createSelectedImage = null;
             _selectedTab = 1; // Switch to Post list tab to see it
           });
+          // Reload posts to show the new one
+          _loadPosts();
         }
       } catch (e) {
         if (mounted) {
@@ -1996,16 +2405,16 @@ Widget build(BuildContext context) {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: _getSportColor(post['sport']!).withOpacity(0.1),
+            color: _getSportColor(post['sport']?['name'] ?? 'Unknown').withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
-            _getSportIcon(post['sport']!),
-            color: _getSportColor(post['sport']!),
+            _getSportIcon(post['sport']?['name'] ?? 'Unknown'),
+            color: _getSportColor(post['sport']?['name'] ?? 'Unknown'),
           ),
         ),
         title: Text(
-          post['title']!,
+          post['title'] ?? 'Untitled',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Column(
@@ -2015,7 +2424,7 @@ Widget build(BuildContext context) {
             Row(
               children: [
                 Text(
-                  '${post['sport']} • ${post['time']}',
+                  '${post['sport']?['name'] ?? 'Unknown'} • ${_formatDate(post['created_at'])}',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -2025,9 +2434,9 @@ Widget build(BuildContext context) {
             ),
             const SizedBox(height: 8),
             Text(
-              (post['body'] as String).length > 100
-                  ? '${(post['body'] as String).substring(0, 100)}...'
-                  : post['body']!,
+              (post['content'] as String? ?? '').length > 100
+                  ? '${(post['content'] as String? ?? '').substring(0, 100)}...'
+                  : post['content'] ?? '',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -2038,7 +2447,7 @@ Widget build(BuildContext context) {
                 Icon(Icons.thumb_up, size: 14, color: Colors.grey[500]),
                 const SizedBox(width: 4),
                 Text(
-                  '${post['likes']} likes',
+                  '${(post['likes'] as int?) ?? 0} likes',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -2048,7 +2457,7 @@ Widget build(BuildContext context) {
                 Icon(Icons.person, size: 14, color: Colors.grey[500]),
                 const SizedBox(width: 4),
                 Text(
-                  post['author']!,
+                  post['author']?['name'] ?? 'Unknown',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -2059,6 +2468,16 @@ Widget build(BuildContext context) {
           ],
         ),
         trailing: PopupMenuButton(
+          onSelected: (value) {
+            switch (value) {
+              case 'edit':
+                _showEditPostDialog(post);
+                break;
+              case 'delete':
+                _showDeletePostConfirmation(post['id'], post['title']);
+                break;
+            }
+          },
           itemBuilder: (context) => [
             const PopupMenuItem(value: 'edit', child: Text('Edit')),
             const PopupMenuItem(
@@ -2069,6 +2488,27 @@ Widget build(BuildContext context) {
         ),
       ),
     );
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null) return 'Unknown';
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays > 0) {
+        return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
+      } else {
+        return 'Just now';
+      }
+    } catch (e) {
+      return 'Unknown';
+    }
   }
 
   Widget _buildStatCard(
@@ -2145,61 +2585,179 @@ Widget build(BuildContext context) {
     }
   }
 
-  void _showCreatePostDialog() {
+  void _showEditPostDialog(Map<String, dynamic> post) {
+    // Pre-fill the form with existing post data
+    _createTitleController.text = post['title'] ?? '';
+    _createDescriptionController.text = post['description'] ?? '';
+    _createContentController.text = post['content'] ?? '';
+
     showDialog(
       context: context,
-      builder: (context) => CreatePostDialog(
-        onPost: (postData) async {
-          try {
-            int sportId;
-            switch ('football'.toLowerCase()) {
-              case 'football':
-                sportId = 1;
-                break;
-              case 'basketball':
-                sportId = 2;
-                break;
-              case 'tennis':
-                sportId = 3;
-                break;
-              case 'volleyball':
-                sportId = 4;
-                break;
-              default:
-                sportId = 1; // Default or handle error
-            }
-
-            await ApiService.createPost(
-              title: postData['title'],
-              description:
-                  postData['body'], // Using body as description for now
-              content: postData['body'],
-              sportId: sportId,
-              category: 'General', // Default category
-              imagePath: postData['image_path'],
-            );
-
-            if (mounted) {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('News post created successfully!'),
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Post'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: _createFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _createTitleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Post Title',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a title';
+                    }
+                    return null;
+                  },
                 ),
-              );
-            }
-          } catch (e) {
-            // Error is handled in dialog, but if it propagates:
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to create post: $e')),
-              );
-            }
-            rethrow; // Re-throw so dialog stops loading if we want, OR dialog handles it.
-            // Actually dialog catches it, so we should throw.
-          }
-        },
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _createDescriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Post Description',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _createContentController,
+                  decoration: const InputDecoration(
+                    labelText: 'Post Content',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 5,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter content';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: _isCreateLoading ? null : () => _updatePost(post['id']),
+            style: ElevatedButton.styleFrom(backgroundColor: _adminColor),
+            child: _isCreateLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Update Post'),
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _updatePost(int postId) async {
+    if (!_createFormKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _isCreateLoading = true);
+    try {
+      // Find the sport ID for the admin's assigned sport
+      int sportId = 1; // Default fallback
+      if (_adminSportName != null && _sports.isNotEmpty) {
+        final sport = _sports.firstWhere(
+          (s) => s['name'].toString().toLowerCase() == _adminSportName!.toLowerCase(),
+          orElse: () => _sports.first,
+        );
+        sportId = sport['id'] ?? 1;
+      }
+
+      await ApiService.updatePost(
+        id: postId,
+        title: _createTitleController.text,
+        description: _createDescriptionController.text,
+        content: _createContentController.text,
+        sportId: sportId,
+        category: 'General',
+      );
+      
+      _createTitleController.clear();
+      _createDescriptionController.clear();
+      _createContentController.clear();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post updated successfully')),
+      );
+      _loadPosts();
+      Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating post: $e')),
+      );
+    } finally {
+      setState(() => _isCreateLoading = false);
+    }
+  }
+
+  void _showDeletePostConfirmation(int postId, String postTitle) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Post'),
+          content: Text('Are you sure you want to delete post "$postTitle"? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deletePost(postId);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deletePost(int postId) async {
+    try {
+      await ApiService.deletePost(postId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post deleted successfully')),
+      );
+      _loadPosts();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting post: $e')),
+      );
+    }
+  }
+
+  void _showCreatePostDialog() {
+    // Clear form fields
+    _createTitleController.clear();
+    _createDescriptionController.clear();
+    _createContentController.clear();
+    setState(() => _createSelectedImage = null);
+
+    setState(() => _selectedTab = 2); // Switch to Create tab
   }
 }
 
