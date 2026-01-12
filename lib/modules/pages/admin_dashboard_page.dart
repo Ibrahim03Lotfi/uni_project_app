@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:sports_news_app/services/api_service.dart';
-import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:sports_news_app/services/api_service.dart';
+import 'package:sports_news_app/modules/pages/welcome_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   final String? userRole;
   final String? adminSportName;
-  
+
   const AdminDashboardPage({super.key, this.userRole, this.adminSportName});
 
   @override
@@ -16,13 +18,13 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final Color _adminColor = const Color(0xFF9C27B0);
   int _selectedTab = 0;
-  
+
   // Form controllers
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
-  
+
   // Form state
   String? _selectedSport;
   String? _selectedTeam;
@@ -30,7 +32,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   File? _selectedImage;
   bool _isLoading = false;
   bool _isCreatingPost = false;
-  
+
   // Data
   List<dynamic> _sports = [];
   List<dynamic> _teams = [];
@@ -48,7 +50,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     try {
       final sportsResponse = await ApiService.getSports();
       final postsResponse = await ApiService.getNewsFeed();
-      
+
       setState(() {
         _sports = sportsResponse;
         _posts = postsResponse;
@@ -57,15 +59,15 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading data: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
     }
   }
 
   Future<void> _createPost() async {
-    if (_titleController.text.isEmpty || 
-        _descriptionController.text.isEmpty || 
+    if (_titleController.text.isEmpty ||
+        _descriptionController.text.isEmpty ||
         _contentController.text.isEmpty ||
         _selectedSport == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,10 +77,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     }
 
     setState(() => _isCreatingPost = true);
-    
+
     try {
-      final sportId = _sports.firstWhere((sport) => sport['name'] == _selectedSport)['id'];
-      
+      final sportId = _sports.firstWhere(
+        (sport) => sport['name'] == _selectedSport,
+      )['id'];
+
       await ApiService.createPost(
         title: _titleController.text,
         description: _descriptionController.text,
@@ -96,9 +100,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       _loadData(); // Refresh posts
       setState(() => _selectedTab = 1); // Switch to posts tab
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating post: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error creating post: $e')));
     } finally {
       setState(() => _isCreatingPost = false);
     }
@@ -116,8 +120,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImagePicker.gallery);
-    
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
     if (pickedFile != null) {
       setState(() {
         _selectedImage = File(pickedFile.path);
@@ -130,7 +134,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       _filteredPosts = _posts.where((post) {
         final title = post['title'].toString().toLowerCase();
         final description = post['description'].toString().toLowerCase();
-        return title.contains(query.toLowerCase()) || description.contains(query.toLowerCase());
+        return title.contains(query.toLowerCase()) ||
+            description.contains(query.toLowerCase());
       }).toList();
     });
   }
@@ -184,7 +189,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           ),
         ],
       ),
-      body: _isLoading 
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _buildTabContent(),
       bottomNavigationBar: BottomNavigationBar(
@@ -202,10 +207,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             icon: Icon(Icons.create),
             label: 'Create Post',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.article),
-            label: 'Posts',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.article), label: 'Posts'),
           BottomNavigationBarItem(
             icon: Icon(Icons.analytics),
             label: 'Analytics',
@@ -261,7 +263,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
-          
+
           // Title
           TextField(
             controller: _titleController,
@@ -271,7 +273,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Description
           TextField(
             controller: _descriptionController,
@@ -282,7 +284,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             maxLines: 3,
           ),
           const SizedBox(height: 16),
-          
+
           // Content
           TextField(
             controller: _contentController,
@@ -293,7 +295,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             maxLines: 8,
           ),
           const SizedBox(height: 16),
-          
+
           // Sport Selection
           DropdownButtonFormField<String>(
             value: _selectedSport,
@@ -302,10 +304,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               border: OutlineInputBorder(),
             ),
             items: _sports.map((sport) {
-              return DropdownMenuItem(
-                value: sport['name'],
-                child: Text(sport['name']),
-              );
+              final name =
+                  (sport is Map ? sport['name'] : sport)?.toString() ?? '';
+              return DropdownMenuItem<String>(value: name, child: Text(name));
             }).toList(),
             onChanged: (value) {
               setState(() {
@@ -314,7 +315,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             },
           ),
           const SizedBox(height: 16),
-          
+
           // Category
           DropdownButtonFormField<String>(
             value: _selectedCategory,
@@ -323,10 +324,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               border: OutlineInputBorder(),
             ),
             items: ['News', 'Match Report', 'Transfer', 'Injury', 'Analysis']
-                .map((category) => DropdownMenuItem(
-                      value: category,
-                      child: Text(category),
-                    ))
+                .map(
+                  (category) =>
+                      DropdownMenuItem(value: category, child: Text(category)),
+                )
                 .toList(),
             onChanged: (value) {
               setState(() {
@@ -335,7 +336,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             },
           ),
           const SizedBox(height: 16),
-          
+
           // Image Upload
           Row(
             children: [
@@ -343,7 +344,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 child: ElevatedButton.icon(
                   onPressed: _pickImage,
                   icon: const Icon(Icons.image),
-                  label: Text(_selectedImage == null ? 'Add Image' : 'Change Image'),
+                  label: Text(
+                    _selectedImage == null ? 'Add Image' : 'Change Image',
+                  ),
                 ),
               ),
               if (_selectedImage != null) ...[
@@ -375,7 +378,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
           ],
           const SizedBox(height: 24),
-          
+
           // Submit Button
           SizedBox(
             width: double.infinity,
@@ -414,7 +417,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             onChanged: _searchPosts,
           ),
         ),
-        
+
         // Posts List
         Expanded(
           child: _filteredPosts.isEmpty
@@ -424,13 +427,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   itemBuilder: (context, index) {
                     final post = _filteredPosts[index];
                     return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       elevation: 2,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Post Image
-                          if (post['image_url'] != null && post['image_url'].isNotEmpty)
+                          if (post['image_url'] != null &&
+                              post['image_url'].isNotEmpty)
                             Container(
                               width: double.infinity,
                               height: 200,
@@ -452,14 +459,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                     return Container(
                                       color: Colors.grey[200],
                                       child: const Center(
-                                        child: Icon(Icons.image_not_supported, size: 40),
+                                        child: Icon(
+                                          Icons.image_not_supported,
+                                          size: 40,
+                                        ),
                                       ),
                                     );
                                   },
                                 ),
                               ),
                             ),
-                          
+
                           // Post Content
                           Padding(
                             padding: const EdgeInsets.all(16),
@@ -483,7 +493,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                     ),
                                     const SizedBox(width: 8),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: _adminColor.withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(8),
@@ -500,7 +513,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                
+
                                 // Description
                                 Text(
                                   post['description'] ?? 'No Description',
@@ -512,11 +525,15 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 8),
-                                
+
                                 // Meta info
                                 Row(
                                   children: [
-                                    Icon(Icons.schedule, size: 14, color: Colors.grey[500]),
+                                    Icon(
+                                      Icons.schedule,
+                                      size: 14,
+                                      color: Colors.grey[500],
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
                                       _formatDate(post['created_at']),

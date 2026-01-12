@@ -40,102 +40,52 @@ class FollowLeaguesPage extends StatefulWidget {
 
 class _FollowLeaguesPageState extends State<FollowLeaguesPage>
     with SingleTickerProviderStateMixin {
+  // Add to your FollowLeaguesPage state class
+  List<dynamic> _leagues = [];
+  Set<int> _selectedLeagueIds = {};
 
-      // Add to your FollowLeaguesPage state class
-List<League> _allLeagues = [];
-Set<String> _followedLeagueIds = {};
+  Future<void> _fetchLeagues() async {
+    try {
+      List<dynamic> allLeagues = [];
 
-
-
-Future<void> _fetchLeagues() async {
-  print('=== DEBUG: FollowLeaguesPage _fetchLeagues START ===');
-  print('DEBUG: Selected sport IDs: ${widget.selectedSportIds}');
-  
-  try {
-    List<League> allLeagues = [];
-    
-    // Fetch leagues for each selected sport
-    for (int sportId in widget.selectedSportIds) {
-      print('DEBUG: Fetching leagues for sport $sportId');
-      final leagues = await ApiService.getLeaguesBySport(sportId);
-      print('DEBUG: API returned ${leagues.length} leagues for sport $sportId');
-      
-      for (var leagueData in leagues) {
-        print('DEBUG: Processing league: ${leagueData}');
-        final league = League(
-          id: leagueData['id'].toString(), // Convert to string for UI consistency
-          name: leagueData['name'] ?? '',
-          country: leagueData['country'] ?? '',
-          logoEmoji: leagueData['logo_emoji'] ?? '🏆',
-          sport: _getSportType(leagueData['sport'] ?? ''),
-          description: leagueData['description'] ?? '',
-        );
-        allLeagues.add(league);
-        print('DEBUG: Added league: ${league.name} (ID: ${league.id})');
+      // Fetch leagues for each selected sport
+      for (int sportId in widget.selectedSportIds) {
+        final leagues = await ApiService.getLeaguesBySport(sportId);
+        allLeagues.addAll(leagues);
       }
+
+      setState(() {
+        _leagues = allLeagues;
+      });
+    } catch (e) {
+      print('Error fetching leagues: $e');
     }
-    
-    print('DEBUG: Total leagues fetched: ${allLeagues.length}');
-    setState(() {
-      _allLeagues = allLeagues;
-    });
-    print('=== DEBUG: FollowLeaguesPage _fetchLeagues END ===');
-  } catch (e) {
-    print('ERROR: FollowLeaguesPage _fetchLeagues failed: $e');
   }
-}
 
-SportType _getSportType(String? sportName) {
-  if (sportName == null) return SportType.football;
-  
-  switch (sportName.toLowerCase()) {
-    case 'football':
-    case 'soccer':
-      return SportType.football;
-    case 'basketball':
-      return SportType.basketball;
-    case 'tennis':
-      return SportType.tennis;
-    case 'volleyball':
-      return SportType.volleyball;
-    default:
-      return SportType.football;
-  }
-}
+  void _onFinish() async {
+    try {
+      print('Saving leagues: ${_selectedLeagueIds.toList()}');
+      await ApiService.saveLeaguesPreferences(_selectedLeagueIds.toList());
+      print('Leagues preferences saved successfully');
+    } catch (e) {
+      print('Error saving leagues: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save league preferences')),
+      );
+      return;
+    }
 
-void _onFinish() async {
-  print('=== DEBUG: FollowLeaguesPage _onFinish START ===');
-  print('DEBUG: _followedLeagueIds before conversion: $_followedLeagueIds');
-  
-  try {
-    // Convert string IDs to int and save the followed leagues
-    List<int> leagueIds = _followedLeagueIds
-        .map((id) => int.tryParse(id) ?? 0)
-        .where((id) => id > 0)
-        .toList();
-    
-    print('DEBUG: League IDs after conversion: $leagueIds');
-    print('DEBUG: Saving leagues to backend...');
-    
-    await ApiService.saveLeaguesPreferences(leagueIds);
-    print('DEBUG: Leagues preferences saved successfully');
-    
     // Navigate to teams selection
-    final teamIds = _followedLeagueIds.map((id) => int.tryParse(id) ?? 0).where((id) => id > 0).toList();
-    print('DEBUG: Passing team IDs to FollowTeamsPage: $teamIds');
-    
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => FollowTeamsPage(selectedLeagueIds: teamIds)),
-    );
-    print('=== DEBUG: FollowLeaguesPage _onFinish END ===');
-  } catch (e) {
-    print('ERROR: FollowLeaguesPage _onFinish failed: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to save league preferences')),
+      MaterialPageRoute(
+        builder: (context) =>
+            FollowTeamsPage(selectedLeagueIds: _selectedLeagueIds.toList()),
+      ),
     );
   }
-}
+
   static const Color primaryGreen = Color(0xFF43A047);
   static const Color darkGreen = Color(0xFF2E7D32);
   static const Color lightGreen = Color(0xFF81C784);
@@ -144,11 +94,15 @@ void _onFinish() async {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  List<League> _allLeagues = [];
+  Set<String> _followedLeagueIds = {};
+
   @override
   void initState() {
     super.initState();
     _fetchLeagues();
     _tabController = TabController(length: 5, vsync: this);
+    _initializeLeagues();
   }
 
   void _initializeLeagues() {
@@ -563,22 +517,16 @@ void _onFinish() async {
       _filteredLeagues.where((l) => l.sport == SportType.volleyball).toList();
 
   void _toggleFollow(League league) {
-  print('DEBUG: _toggleFollow called for league: ${league.name} (ID: ${league.id})');
-  print('DEBUG: Current _followedLeagueIds: $_followedLeagueIds');
-  
-  setState(() {
-    if (_followedLeagueIds.contains(league.id)) {
-      print('DEBUG: Removing league from followed list');
-      _followedLeagueIds.remove(league.id);
-      league.isFollowing = false;
-    } else {
-      print('DEBUG: Adding league to followed list');
-      _followedLeagueIds.add(league.id);
-      league.isFollowing = true;
-    }
-    print('DEBUG: Updated _followedLeagueIds: $_followedLeagueIds');
-  });
-}
+    setState(() {
+      if (_followedLeagueIds.contains(league.id)) {
+        _followedLeagueIds.remove(league.id);
+        league.isFollowing = false;
+      } else {
+        _followedLeagueIds.add(league.id);
+        league.isFollowing = true;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -1160,7 +1108,14 @@ void _onFinish() async {
     return ElevatedButton(
       onPressed: _followedLeagueIds.isNotEmpty
           ? () {
-              _onFinish(); // Call the save method
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FollowTeamsPage(
+                    selectedLeagueIds: _selectedLeagueIds.toList(),
+                  ),
+                ),
+              );
             }
           : null,
       style: ElevatedButton.styleFrom(
@@ -1868,7 +1823,14 @@ void _onFinish() async {
             ElevatedButton(
               onPressed: _followedLeagueIds.isNotEmpty
                   ? () {
-                      _onFinish(); // Call the save method
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FollowTeamsPage(
+                            selectedLeagueIds: _selectedLeagueIds.toList(),
+                          ),
+                        ),
+                      );
                     }
                   : null,
               style: ElevatedButton.styleFrom(

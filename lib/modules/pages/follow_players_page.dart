@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:sports_news_app/services/api_service.dart';
-import 'package:sports_news_app/modules/pages/preferences_summary_page.dart';
+import 'package:sports_news_app/widget_tree.dart';
 
 // Player Model
 class Player {
@@ -65,62 +65,48 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
   }
 
   Future<void> _initializePlayers() async {
-    print('=== DEBUG: FollowPlayersPage _initializePlayers START ===');
     setState(() {
       _isLoading = true;
     });
 
     try {
       List<Player> allPlayers = [];
-      print('DEBUG: Selected team IDs: ${widget.selectedTeamIds}');
-      
+
       // For each selected team, get its players
       for (int teamId in widget.selectedTeamIds) {
         try {
-          print('DEBUG: Fetching players for team $teamId');
           final playersResponse = await http.get(
             Uri.parse('${ApiService.baseUrl}/teams/$teamId/players'),
             headers: await ApiService.headers,
           );
 
-          print('DEBUG: Players API response status: ${playersResponse.statusCode}');
-          
           if (playersResponse.statusCode == 200) {
             final playersData = json.decode(playersResponse.body);
             final players = playersData['data'] ?? [];
-            print('DEBUG: Found ${players.length} players for team $teamId');
-            print('DEBUG: Players data: $players');
-            
+
             // Convert API response to Player objects
             for (var playerData in players) {
               final player = Player(
                 id: playerData['id'].toString(),
                 name: playerData['name'] ?? '',
                 nationality: playerData['nationality'] ?? '',
-                team: playerData['team']?['name'] ?? playerData['team_name'] ?? '',
-                sport: _getSportType(playerData['sport']?['name'] ?? playerData['sport'] ?? ''),
+                team: playerData['team_name'] ?? '',
+                sport: _getSportType(playerData['sport']),
                 position: playerData['position'] ?? '',
                 imageEmoji: playerData['image_emoji'] ?? '👤',
                 flagEmoji: playerData['flag_emoji'] ?? '🏳️',
                 jerseyNumber: playerData['jersey_number']?.toString(),
               );
               allPlayers.add(player);
-              print('DEBUG: Added player: ${player.name} (ID: ${player.id})');
             }
-          } else {
-            print('DEBUG: Failed to fetch players for team $teamId, status: ${playersResponse.statusCode}');
-            print('DEBUG: Response body: ${playersResponse.body}');
           }
         } catch (e) {
-          print('ERROR: Error fetching players for team $teamId: $e');
+          print('Error fetching players for team $teamId: $e');
         }
       }
 
-      print('DEBUG: Total players loaded: ${allPlayers.length}');
-
       // If no players from API, use fallback hardcoded players
       if (allPlayers.isEmpty) {
-        print('DEBUG: Using fallback players');
         allPlayers = _getFallbackPlayers();
       }
 
@@ -128,18 +114,17 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
         _allPlayers = allPlayers;
         _isLoading = false;
       });
-      print('=== DEBUG: FollowPlayersPage _initializePlayers END ===');
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      print('ERROR: FollowPlayersPage _initializePlayers failed: $e');
+      print('Error loading players: $e');
     }
   }
 
   SportType _getSportType(String? sportName) {
     if (sportName == null) return SportType.football;
-    
+
     switch (sportName.toLowerCase()) {
       case 'football':
       case 'soccer':
@@ -921,22 +906,16 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
       _filteredPlayers.where((p) => p.isFeatured).toList();
 
   void _toggleFollow(Player player) {
-  print('DEBUG: _toggleFollow called for player: ${player.name} (ID: ${player.id})');
-  print('DEBUG: Current _followedPlayerIds: $_followedPlayerIds');
-  
-  setState(() {
-    if (_followedPlayerIds.contains(player.id)) {
-      print('DEBUG: Removing player from followed list');
-      _followedPlayerIds.remove(player.id);
-      player.isFollowing = false;
-    } else {
-      print('DEBUG: Adding player to followed list');
-      _followedPlayerIds.add(player.id);
-      player.isFollowing = true;
-    }
-    print('DEBUG: Updated _followedPlayerIds: $_followedPlayerIds');
-  });
-}
+    setState(() {
+      if (_followedPlayerIds.contains(player.id)) {
+        _followedPlayerIds.remove(player.id);
+        player.isFollowing = false;
+      } else {
+        _followedPlayerIds.add(player.id);
+        player.isFollowing = true;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -1502,33 +1481,24 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
     return ElevatedButton(
       onPressed: _followedPlayerIds.isNotEmpty
           ? () async {
-              print('=== DEBUG: FollowPlayersPage _buildFinishButton START ===');
-              print('DEBUG: _followedPlayerIds: $_followedPlayerIds');
-              
               try {
                 final playerIds = _allPlayers
                     .where((player) => _followedPlayerIds.contains(player.id))
                     .map((player) => int.tryParse(player.id) ?? 0)
                     .where((id) => id > 0)
                     .toList();
-                
-                print('DEBUG: Player IDs after conversion: $playerIds');
-                print('DEBUG: Saving players to backend...');
-                
+                print('Saving players: $playerIds');
                 await ApiService.savePlayersPreferences(playerIds);
-                print('DEBUG: Players preferences saved successfully');
-                
+                print('Players preferences saved successfully');
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (context) => const PreferencesSummaryPage()),
+                  MaterialPageRoute(builder: (context) => const WidgetTree()),
                   (route) => false,
                 );
-                print('=== DEBUG: FollowPlayersPage _buildFinishButton END ===');
               } catch (e) {
-                print('ERROR: FollowPlayersPage _buildFinishButton failed: $e');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             }
           : null,
@@ -2229,7 +2199,7 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const PreferencesSummaryPage(),
+                        builder: (context) => const WidgetTree(),
                       ),
                       (route) => false,
                     );
@@ -2245,35 +2215,15 @@ class _FollowPlayersPageState extends State<FollowPlayersPage>
                 const Spacer(),
                 // Finish button
                 ElevatedButton(
-                  onPressed: _followedPlayerIds.isNotEmpty
-                      ? () async {
-                          // Call the same save logic as the main finish button
-                          try {
-                            final playerIds = _allPlayers
-                                .where((player) => _followedPlayerIds.contains(player.id))
-                                .map((player) => int.tryParse(player.id) ?? 0)
-                                .where((id) => id > 0)
-                                .toList();
-                            
-                            print('DEBUG: Player IDs after conversion: $playerIds');
-                            print('DEBUG: Saving players to backend...');
-                            
-                            await ApiService.savePlayersPreferences(playerIds);
-                            print('DEBUG: Players preferences saved successfully');
-                            
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(builder: (context) => const PreferencesSummaryPage()),
-                              (route) => false,
-                            );
-                          } catch (e) {
-                            print('ERROR: FollowPlayersPage finish button failed: $e');
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e')),
-                            );
-                          }
-                        }
-                      : null,
+                  onPressed: () {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const WidgetTree(),
+                      ),
+                      (route) => false,
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryGreen,
                     foregroundColor: Colors.white,

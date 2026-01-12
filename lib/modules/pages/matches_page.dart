@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'match_datail_page.dart' as match_details;
+import 'package:sports_news_app/services/api_service.dart';
 
 // Sport Type Enum
 enum SportType { football, basketball, tennis, volleyball }
@@ -54,274 +54,124 @@ class _MatchesPageState extends State<MatchesPage> {
   DateTime _selectedDate = DateTime.now();
   SportType? _selectedSport;
   List<Match> _allMatches = [];
+  bool _isLoading = false;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
-    _initializeMatches();
+    _fetchMatches();
   }
 
-  void _initializeMatches() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+  Future<void> _fetchMatches() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    try {
+      final raw = await ApiService.getMatches();
+      final matches = raw
+          .map((e) => _parseMatch(e as dynamic))
+          .whereType<Match>()
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _allMatches = matches;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
-    _allMatches = [
-      // TODAY - FOOTBALL MATCHES
-      Match(
-        id: 'match_1',
-        homeTeam: 'Manchester United',
-        awayTeam: 'Liverpool',
-        homeTeamLogo: '🔴',
-        awayTeamLogo: '🔴',
-        dateTime: today.add(const Duration(hours: 15)),
-        league: 'Premier League',
-        sport: SportType.football,
-        status: MatchStatus.live,
-        homeScore: 2,
-        awayScore: 1,
-        liveMinute: '67\'',
-      ),
-      Match(
-        id: 'match_2',
-        homeTeam: 'Manchester City',
-        awayTeam: 'Chelsea',
-        homeTeamLogo: '🩵',
-        awayTeamLogo: '🔵',
-        dateTime: today.add(const Duration(hours: 17, minutes: 30)),
-        league: 'Premier League',
-        sport: SportType.football,
-        status: MatchStatus.scheduled,
-      ),
-      Match(
-        id: 'match_3',
-        homeTeam: 'Arsenal',
-        awayTeam: 'Tottenham',
-        homeTeamLogo: '🔴',
-        awayTeamLogo: '⚪',
-        dateTime: today.add(const Duration(hours: 20)),
-        league: 'Premier League',
-        sport: SportType.football,
-        status: MatchStatus.scheduled,
-      ),
-      Match(
-        id: 'match_4',
-        homeTeam: 'Real Madrid',
-        awayTeam: 'Barcelona',
-        homeTeamLogo: '⚪',
-        awayTeamLogo: '🔵🔴',
-        dateTime: today.add(const Duration(hours: 21)),
-        league: 'La Liga',
-        sport: SportType.football,
-        status: MatchStatus.scheduled,
-      ),
-      Match(
-        id: 'match_5',
-        homeTeam: 'Bayern Munich',
-        awayTeam: 'Dortmund',
-        homeTeamLogo: '🔴',
-        awayTeamLogo: '🟡',
-        dateTime: today.add(const Duration(hours: 18, minutes: 30)),
-        league: 'Bundesliga',
-        sport: SportType.football,
-        status: MatchStatus.scheduled,
-      ),
-      Match(
-        id: 'match_6',
-        homeTeam: 'Inter Milan',
-        awayTeam: 'AC Milan',
-        homeTeamLogo: '🔵⚫',
-        awayTeamLogo: '🔴⚫',
-        dateTime: today.add(const Duration(hours: 20, minutes: 45)),
-        league: 'Serie A',
-        sport: SportType.football,
-        status: MatchStatus.scheduled,
-      ),
+  Match? _parseMatch(dynamic json) {
+    if (json is! Map) return null;
+    final m = Map<String, dynamic>.from(json);
 
-      // TODAY - BASKETBALL MATCHES
-      Match(
-        id: 'match_7',
-        homeTeam: 'Lakers',
-        awayTeam: 'Warriors',
-        homeTeamLogo: '💜💛',
-        awayTeamLogo: '💙💛',
-        dateTime: today.add(const Duration(hours: 19)),
-        league: 'NBA',
-        sport: SportType.basketball,
-        status: MatchStatus.scheduled,
-      ),
-      Match(
-        id: 'match_8',
-        homeTeam: 'Celtics',
-        awayTeam: 'Heat',
-        homeTeamLogo: '🍀',
-        awayTeamLogo: '🔥',
-        dateTime: today.add(const Duration(hours: 19, minutes: 30)),
-        league: 'NBA',
-        sport: SportType.basketball,
-        status: MatchStatus.scheduled,
-      ),
-      Match(
-        id: 'match_9',
-        homeTeam: 'Real Madrid',
-        awayTeam: 'Barcelona',
-        homeTeamLogo: '⚪',
-        awayTeamLogo: '🔵🔴',
-        dateTime: today.add(const Duration(hours: 20, minutes: 30)),
-        league: 'EuroLeague',
-        sport: SportType.basketball,
-        status: MatchStatus.scheduled,
-      ),
+    final id = (m['id'] ?? '').toString();
 
-      // TODAY - TENNIS MATCHES
-      Match(
-        id: 'match_10',
-        homeTeam: 'Novak Djokovic',
-        awayTeam: 'Carlos Alcaraz',
-        homeTeamLogo: '🇷🇸',
-        awayTeamLogo: '🇪🇸',
-        dateTime: today.add(const Duration(hours: 14)),
-        league: 'ATP Finals',
-        sport: SportType.tennis,
-        status: MatchStatus.scheduled,
-      ),
+    final homeTeam = (m['home_team']?['name'] ?? m['home_team_name'] ?? 'Home')
+        .toString();
+    final awayTeam = (m['away_team']?['name'] ?? m['away_team_name'] ?? 'Away')
+        .toString();
+    final league = (m['league']?['name'] ?? m['league_name'] ?? '').toString();
 
-      // TODAY - VOLLEYBALL MATCHES
-      Match(
-        id: 'match_11',
-        homeTeam: 'Perugia',
-        awayTeam: 'Modena',
-        homeTeamLogo: '⚫🟡',
-        awayTeamLogo: '💙💛',
-        dateTime: today.add(const Duration(hours: 18)),
-        league: 'Serie A (Italy)',
-        sport: SportType.volleyball,
-        status: MatchStatus.scheduled,
-      ),
+    final matchTime = (m['match_time'] ?? m['date_time'] ?? m['matchTime'])
+        ?.toString();
+    DateTime dateTime;
+    if (matchTime == null || matchTime.isEmpty) {
+      dateTime = DateTime.now();
+    } else {
+      dateTime = DateTime.tryParse(matchTime) ?? DateTime.now();
+    }
 
-      // TOMORROW - FOOTBALL MATCHES
-      Match(
-        id: 'match_12',
-        homeTeam: 'PSG',
-        awayTeam: 'Monaco',
-        homeTeamLogo: '🔵🔴',
-        awayTeamLogo: '🔴⚪',
-        dateTime: today.add(const Duration(days: 1, hours: 21)),
-        league: 'Ligue 1',
-        sport: SportType.football,
-        status: MatchStatus.scheduled,
-      ),
-      Match(
-        id: 'match_13',
-        homeTeam: 'Juventus',
-        awayTeam: 'Napoli',
-        homeTeamLogo: '⚫⚪',
-        awayTeamLogo: '🔵',
-        dateTime: today.add(const Duration(days: 1, hours: 20, minutes: 45)),
-        league: 'Serie A',
-        sport: SportType.football,
-        status: MatchStatus.scheduled,
-      ),
-      Match(
-        id: 'match_14',
-        homeTeam: 'Inter Miami',
-        awayTeam: 'LA Galaxy',
-        homeTeamLogo: '🩷',
-        awayTeamLogo: '🔵🟡',
-        dateTime: today.add(const Duration(days: 1, hours: 19, minutes: 30)),
-        league: 'MLS',
-        sport: SportType.football,
-        status: MatchStatus.scheduled,
-      ),
+    final statusStr = (m['status'] ?? 'scheduled').toString().toLowerCase();
+    final status = switch (statusStr) {
+      'live' => MatchStatus.live,
+      'finished' => MatchStatus.finished,
+      _ => MatchStatus.scheduled,
+    };
 
-      // TOMORROW - BASKETBALL MATCHES
-      Match(
-        id: 'match_15',
-        homeTeam: 'Bucks',
-        awayTeam: 'Nets',
-        homeTeamLogo: '🦌',
-        awayTeamLogo: '⚫⚪',
-        dateTime: today.add(const Duration(days: 1, hours: 19)),
-        league: 'NBA',
-        sport: SportType.basketball,
-        status: MatchStatus.scheduled,
-      ),
-      Match(
-        id: 'match_16',
-        homeTeam: 'Nuggets',
-        awayTeam: 'Suns',
-        homeTeamLogo: '⛏️',
-        awayTeamLogo: '☀️',
-        dateTime: today.add(const Duration(days: 1, hours: 21)),
-        league: 'NBA',
-        sport: SportType.basketball,
-        status: MatchStatus.scheduled,
-      ),
+    final sportId = int.tryParse((m['sport_id'] ?? '').toString());
+    final sportName = (m['sport']?['name'] ?? m['sport_name'] ?? '')
+        .toString()
+        .toLowerCase();
+    final sport = _sportFromApi(sportId: sportId, sportName: sportName);
 
-      // YESTERDAY - FINISHED MATCHES
-      Match(
-        id: 'match_17',
-        homeTeam: 'Ajax',
-        awayTeam: 'Porto',
-        homeTeamLogo: '🔴⚪',
-        awayTeamLogo: '🔵⚪',
-        dateTime: today.subtract(const Duration(days: 1, hours: 3)),
-        league: 'Eredivisie',
-        sport: SportType.football,
-        status: MatchStatus.finished,
-        homeScore: 3,
-        awayScore: 1,
-      ),
-      Match(
-        id: 'match_18',
-        homeTeam: 'Al-Nassr',
-        awayTeam: 'Al-Hilal',
-        homeTeamLogo: '🟡',
-        awayTeamLogo: '🔵',
-        dateTime: today.subtract(const Duration(days: 1, hours: 5)),
-        league: 'Saudi Pro League',
-        sport: SportType.football,
-        status: MatchStatus.finished,
-        homeScore: 2,
-        awayScore: 2,
-      ),
-      Match(
-        id: 'match_19',
-        homeTeam: 'Bulls',
-        awayTeam: 'Cavaliers',
-        homeTeamLogo: '🐂',
-        awayTeamLogo: '🍷',
-        dateTime: today.subtract(const Duration(days: 1, hours: 6)),
-        league: 'NBA',
-        sport: SportType.basketball,
-        status: MatchStatus.finished,
-        homeScore: 105,
-        awayScore: 98,
-      ),
+    final homeScore = m['home_score'] is int
+        ? m['home_score'] as int
+        : int.tryParse((m['home_score'] ?? '').toString());
+    final awayScore = m['away_score'] is int
+        ? m['away_score'] as int
+        : int.tryParse((m['away_score'] ?? '').toString());
+    final liveMinute = m['live_minute']?.toString();
 
-      // DAY AFTER TOMORROW
-      Match(
-        id: 'match_20',
-        homeTeam: 'Benfica',
-        awayTeam: 'Sporting',
-        homeTeamLogo: '🔴',
-        awayTeamLogo: '🟢',
-        dateTime: today.add(const Duration(days: 2, hours: 20)),
-        league: 'Primeira Liga',
-        sport: SportType.football,
-        status: MatchStatus.scheduled,
-      ),
-      Match(
-        id: 'match_21',
-        homeTeam: 'Mavericks',
-        awayTeam: 'Thunder',
-        homeTeamLogo: '🐴',
-        awayTeamLogo: '⚡',
-        dateTime: today.add(const Duration(days: 2, hours: 20, minutes: 30)),
-        league: 'NBA',
-        sport: SportType.basketball,
-        status: MatchStatus.scheduled,
-      ),
-    ];
+    return Match(
+      id: id,
+      homeTeam: homeTeam,
+      awayTeam: awayTeam,
+      homeTeamLogo: '🏠',
+      awayTeamLogo: '🚌',
+      dateTime: dateTime,
+      league: league.isEmpty ? 'League' : league,
+      sport: sport,
+      status: status,
+      homeScore: homeScore,
+      awayScore: awayScore,
+      liveMinute: liveMinute,
+    );
+  }
+
+  SportType _sportFromApi({int? sportId, required String sportName}) {
+    if (sportId != null) {
+      switch (sportId) {
+        case 1:
+          return SportType.football;
+        case 2:
+          return SportType.basketball;
+        case 3:
+          return SportType.tennis;
+        case 4:
+          return SportType.volleyball;
+      }
+    }
+    switch (sportName) {
+      case 'football':
+        return SportType.football;
+      case 'basketball':
+        return SportType.basketball;
+      case 'tennis':
+        return SportType.tennis;
+      case 'volleyball':
+        return SportType.volleyball;
+      default:
+        return SportType.football;
+    }
   }
 
   List<Match> get _filteredMatches {
@@ -1129,78 +979,99 @@ class _MatchesPageState extends State<MatchesPage> {
   }
 
   Widget _buildMatchesList({required bool isDesktop}) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_loadError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error: $_loadError'),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _fetchMatches,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
     if (_filteredMatches.isEmpty) {
       return _buildEmptyState();
     }
 
     final grouped = _groupedMatches;
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      itemCount: grouped.length,
-      itemBuilder: (context, index) {
-        final league = grouped.keys.elementAt(index);
-        final matches = grouped[league]!;
-        final sportColor = _getSportColor(matches.first.sport);
+    return RefreshIndicator(
+      onRefresh: _fetchMatches,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        itemCount: grouped.length,
+        itemBuilder: (context, index) {
+          final league = grouped.keys.elementAt(index);
+          final matches = grouped[league]!;
+          final sportColor = _getSportColor(matches.first.sport);
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (index > 0) const SizedBox(height: 24),
-            // League Header
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: sportColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _getSportIcon(matches.first.sport),
-                          size: 16,
-                          color: sportColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          league,
-                          style: TextStyle(
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (index > 0) const SizedBox(height: 24),
+              // League Header
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: sportColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getSportIcon(matches.first.sport),
+                            size: 16,
                             color: sportColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Text(
+                            league,
+                            style: TextStyle(
+                              color: sportColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      height: 1,
-                      color: Theme.of(context).colorScheme.outlineVariant,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            // Matches
-            ...matches.map((match) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildMatchCard(match, isDesktop: isDesktop),
-              );
-            }),
-          ],
-        );
-      },
+              // Matches
+              ...matches.map((match) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildMatchCard(match, isDesktop: isDesktop),
+                );
+              }),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -1231,15 +1102,7 @@ class _MatchesPageState extends State<MatchesPage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    match_details.MatchDetailsPage(matchId: match.id),
-              ),
-            );
-          },
+          onTap: () {},
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(12),

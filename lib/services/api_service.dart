@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://172.20.10.5:8000/api';
+  static const String baseUrl = 'http://192.168.1.8:8000/api';
   static String? token;
 
   static Future<Map<String, String>> get headers async {
@@ -103,6 +103,24 @@ class ApiService {
       return json.decode(response.body);
     } else {
       throw Exception('Failed to get user data');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateProfile({
+    required String name,
+    required String email,
+  }) async {
+    final url = Uri.parse('$baseUrl/user');
+    final response = await http.put(
+      url,
+      headers: await headers,
+      body: json.encode({'name': name, 'email': email}),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to update profile: ${response.body}');
     }
   }
 
@@ -216,7 +234,7 @@ class ApiService {
 
   // Get user preferences
   static Future<Map<String, dynamic>> getUserPreferences() async {
-    final url = Uri.parse('$baseUrl/preferences');
+    final url = Uri.parse('$baseUrl/user/preferences');
     final response = await http.get(url, headers: await headers);
     if (response.statusCode == 200) {
       return json.decode(response.body);
@@ -225,7 +243,7 @@ class ApiService {
     }
   }
 
-  // Get User's News Feed
+  // Get News Feed
   static Future<List<dynamic>> getNewsFeed() async {
     final url = Uri.parse('$baseUrl/feed');
     final response = await http.get(url, headers: await headers);
@@ -235,19 +253,6 @@ class ApiService {
       return data['data']; // Resource collection returns 'data' array
     } else {
       throw Exception('Failed to load news feed');
-    }
-  }
-
-  // Get Admin's Posts Only
-  static Future<List<dynamic>> getMyPosts() async {
-    final url = Uri.parse('$baseUrl/my-posts');
-    final response = await http.get(url, headers: await headers);
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return data['data']; // Resource collection returns 'data' array
-    } else {
-      throw Exception('Failed to load my posts');
     }
   }
 
@@ -287,45 +292,146 @@ class ApiService {
     }
   }
 
-  // Update News Post (Admin)
-  static Future<Map<String, dynamic>> updatePost({
-    required int id,
-    required String title,
-    required String description,
-    required String content,
+  // Create Match (Admin)
+  static Future<Map<String, dynamic>> createMatch({
+    required int homeTeamId,
+    required int awayTeamId,
+    required int leagueId,
     required int sportId,
-    required String category,
-    int? teamId,
+    required String matchTime,
+    required String status,
+    int? homeScore,
+    int? awayScore,
+    String? liveMinute,
   }) async {
-    final url = Uri.parse('$baseUrl/posts/$id');
-    final response = await http.put(
+    final url = Uri.parse('$baseUrl/matches');
+    final response = await http.post(
       url,
       headers: await headers,
       body: json.encode({
-        'title': title,
-        'description': description,
-        'content': content,
-        'sport_id': sportId,
-        'category': category,
-        if (teamId != null) 'team_id': teamId,
+        'home_team_id': homeTeamId.toString(),
+        'away_team_id': awayTeamId.toString(),
+        'league_id': leagueId.toString(),
+        'sport_id': sportId.toString(),
+        'match_time': matchTime,
+        'status': status,
+        if (homeScore != null) 'home_score': homeScore,
+        if (awayScore != null) 'away_score': awayScore,
+        if (liveMinute != null) 'live_minute': liveMinute,
       }),
     );
 
-    if (response.statusCode == 200) {
+    if (response.statusCode == 201) {
       return json.decode(response.body);
     } else {
-      throw Exception('Failed to update post: ${response.body}');
+      throw Exception('Failed to create match: ${response.body}');
     }
   }
 
-  // Delete News Post (Admin)
-  static Future<void> deletePost(int postId) async {
-    final url = Uri.parse('$baseUrl/posts/$postId');
+  // Get Matches
+  static Future<List<dynamic>> getMatches() async {
+    final url = Uri.parse('$baseUrl/matches');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      final decoded = json.decode(response.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map<String, dynamic>) {
+        final data = decoded['data'];
+        if (data is List) return data;
+      }
+      return [];
+    } else {
+      throw Exception('Failed to load matches: ${response.body}');
+    }
+  }
+
+  // Update Match (Admin)
+  static Future<Map<String, dynamic>> updateMatch({
+    required String matchId,
+    String? status,
+    int? homeScore,
+    int? awayScore,
+    String? liveMinute,
+    String? matchTime,
+    int? homeTeamId,
+    int? awayTeamId,
+    int? leagueId,
+    int? sportId,
+  }) async {
+    final url = Uri.parse('$baseUrl/matches/$matchId');
+    final payload = <String, dynamic>{
+      if (homeTeamId != null) 'home_team_id': homeTeamId.toString(),
+      if (awayTeamId != null) 'away_team_id': awayTeamId.toString(),
+      if (leagueId != null) 'league_id': leagueId.toString(),
+      if (sportId != null) 'sport_id': sportId.toString(),
+      if (matchTime != null) 'match_time': matchTime,
+      if (status != null) 'status': status,
+      if (homeScore != null) 'home_score': homeScore,
+      if (awayScore != null) 'away_score': awayScore,
+      if (liveMinute != null) 'live_minute': liveMinute,
+    };
+
+    final h = await headers;
+
+    bool isSuccess(http.Response r) {
+      return r.statusCode == 200 || r.statusCode == 201 || r.statusCode == 204;
+    }
+
+    bool looksLikeHtml(http.Response r) {
+      final ct = (r.headers['content-type'] ?? '').toLowerCase();
+      if (ct.contains('text/html')) return true;
+      final body = r.body.trimLeft();
+      return body.startsWith('<!doctype html') || body.startsWith('<html');
+    }
+
+    Map<String, dynamic> decodeBody(http.Response r) {
+      final body = r.body;
+      if (body.trim().isEmpty) return <String, dynamic>{};
+      final trimmed = body.trimLeft();
+      if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) {
+        return <String, dynamic>{'raw': body};
+      }
+      final decoded = json.decode(body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      return {'data': decoded};
+    }
+
+    http.Response response;
+
+    response = await http.patch(url, headers: h, body: json.encode(payload));
+    if (isSuccess(response) && !looksLikeHtml(response)) {
+      return decodeBody(response);
+    }
+
+    response = await http.put(url, headers: h, body: json.encode(payload));
+    if (isSuccess(response) && !looksLikeHtml(response)) {
+      return decodeBody(response);
+    }
+
+    response = await http.post(
+      url,
+      headers: h,
+      body: json.encode({...payload, '_method': 'PUT'}),
+    );
+    if (isSuccess(response) && !looksLikeHtml(response)) {
+      return decodeBody(response);
+    }
+
+    throw Exception(
+      'Failed to update match (${response.statusCode}): ${response.body}',
+    );
+  }
+
+  // Delete Match (Admin)
+  static Future<void> deleteMatch(String matchId) async {
+    final url = Uri.parse('$baseUrl/matches/$matchId');
     final response = await http.delete(url, headers: await headers);
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to delete post: ${response.body}');
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return;
     }
+    throw Exception('Failed to delete match: ${response.body}');
   }
 
   // Search Posts
@@ -591,65 +697,6 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to follow player');
-    }
-  }
-
-  // Super Admin: Create sport
-  static Future<Map<String, dynamic>> createSport({
-    required String name,
-    String? description,
-    String? icon,
-  }) async {
-    final url = Uri.parse('$baseUrl/admin/sports');
-    final response = await http.post(
-      url,
-      headers: await headers,
-      body: json.encode({
-        'name': name,
-        'description': description,
-        'icon': icon,
-      }),
-    );
-
-    if (response.statusCode == 201) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Failed to create sport');
-    }
-  }
-
-  // Super Admin: Update sport
-  static Future<Map<String, dynamic>> updateSport({
-    required int id,
-    required String name,
-    String? description,
-    String? icon,
-  }) async {
-    final url = Uri.parse('$baseUrl/admin/sports/$id');
-    final response = await http.put(
-      url,
-      headers: await headers,
-      body: json.encode({
-        'name': name,
-        'description': description,
-        'icon': icon,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Failed to update sport');
-    }
-  }
-
-  // Super Admin: Delete sport
-  static Future<void> deleteSport(int id) async {
-    final url = Uri.parse('$baseUrl/admin/sports/$id');
-    final response = await http.delete(url, headers: await headers);
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to delete sport');
     }
   }
 

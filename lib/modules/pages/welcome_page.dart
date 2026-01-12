@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:sports_news_app/modules/pages/login_page.dart';
 import 'package:sports_news_app/modules/pages/register_page.dart';
 import 'package:sports_news_app/services/api_service.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sports_news_app/modules/pages/news_page.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -20,9 +22,6 @@ class _WelcomePageState extends State<WelcomePage>
   static const Color adminColor = Color(0xFF9C27B0);
 
   // Admin state variables
-  String? _userRole;
-  String? _adminSportName; // Completely different name
-
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late AnimationController _pulseController;
@@ -320,16 +319,7 @@ class _WelcomePageState extends State<WelcomePage>
         return AdminLoginDialog(
           onLogin: (role, assignedSport) {
             Navigator.pop(context);
-            
-            // Store admin info in state
-            setState(() {
-              _userRole = role;
-              // Extract assigned sport name from user object
-              if (role != 'super_admin' && assignedSport != null) {
-                _adminSportName = assignedSport;
-              }
-            });
-            
+
             if (role == 'super_admin') {
               Navigator.push(
                 context,
@@ -684,10 +674,10 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
                           email: _emailController.text.trim(),
                           password: _passwordController.text,
                         );
-                        
+
                         if (mounted) {
                           Navigator.pop(context);
-                          
+
                           // Show success message
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -695,20 +685,23 @@ class _AdminLoginDialogState extends State<AdminLoginDialog> {
                               backgroundColor: Colors.green,
                             ),
                           );
-                          
+
                           // Navigate based on role
                           final role = result['role'];
-                          final assignedSport = result['user']?['assigned_sport']?['name'] as String?;
-                          
+                          final assignedSport =
+                              result['user']?['assigned_sport']?['name']
+                                  as String?;
+
                           if (role == 'super_admin') {
-                            Navigator.pushReplacement(
+                            Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const SuperAdminDashboardPage(),
+                                builder: (context) =>
+                                    const SuperAdminDashboardPage(),
                               ),
                             );
                           } else {
-                            Navigator.pushReplacement(
+                            Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => AdminDashboardPage(
@@ -811,193 +804,64 @@ class SuperAdminDashboardPage extends StatefulWidget {
   const SuperAdminDashboardPage({super.key});
 
   @override
-  State<SuperAdminDashboardPage> createState() => _SuperAdminDashboardPageState();
+  State<SuperAdminDashboardPage> createState() =>
+      _SuperAdminDashboardPageState();
 }
 
 class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _sportFormKey = GlobalKey<FormState>();
-  
-  // Admin creation form controllers
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  int? _selectedSportId;
-  
-  // Sport creation form controllers
-  final _sportNameController = TextEditingController();
-  final _sportDescriptionController = TextEditingController();
-  final _sportIconController = TextEditingController();
-  
-  List<dynamic> _sports = [];
-  List<dynamic> _users = [];
-  bool _isLoading = false;
-  bool _isLoadingUsers = false;
   int _selectedTab = 0;
   final Color _adminColor = const Color(0xFF9C27B0);
 
-  @override
-  void initState() {
-    super.initState();
-    _loadSports();
-    _loadUsers();
-  }
+  final List<Map<String, dynamic>> _mockAdmins = [
+    {
+      'id': '1',
+      'name': 'John Doe',
+      'email': 'john@admin.com',
+      'sport': 'Football',
+      'status': 'Active',
+    },
+    {
+      'id': '2',
+      'name': 'Sarah Smith',
+      'email': 'sarah@admin.com',
+      'sport': 'Basketball',
+      'status': 'Active',
+    },
+    {
+      'id': '3',
+      'name': 'Mike Johnson',
+      'email': 'mike@admin.com',
+      'sport': 'Tennis',
+      'status': 'Inactive',
+    },
+  ];
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _sportNameController.dispose();
-    _sportDescriptionController.dispose();
-    _sportIconController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadSports() async {
-    setState(() => _isLoading = true);
-    try {
-      final sports = await ApiService.getSportsForAssignment();
-      setState(() {
-        _sports = sports;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading sports: $e')),
-      );
-    }
-  }
-
-  Future<void> _loadUsers() async {
-    setState(() => _isLoadingUsers = true);
-    try {
-      final usersData = await ApiService.getAllUsers();
-      setState(() {
-        _users = usersData['data'] ?? [];
-        _isLoadingUsers = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingUsers = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading users: $e')),
-      );
-    }
-  }
-
-  Future<void> _createAdmin() async {
-    if (!_formKey.currentState!.validate() || _selectedSportId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields and select a sport')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      await ApiService.createAdmin(
-        name: _nameController.text,
-        email: _emailController.text,
-        password: _passwordController.text,
-        assignedSportId: _selectedSportId!,
-      );
-      
-      _nameController.clear();
-      _emailController.clear();
-      _passwordController.clear();
-      _selectedSportId = null;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Admin created successfully')),
-      );
-      _loadUsers();
-      Navigator.of(context).pop();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating admin: $e')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _createSport() async {
-    if (!_sportFormKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      await ApiService.createSport(
-        name: _sportNameController.text,
-        description: _sportDescriptionController.text.isEmpty ? null : _sportDescriptionController.text,
-        icon: _sportIconController.text.isEmpty ? null : _sportIconController.text,
-      );
-      
-      _sportNameController.clear();
-      _sportDescriptionController.clear();
-      _sportIconController.clear();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sport created successfully')),
-      );
-      _loadSports();
-      Navigator.of(context).pop();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating sport: $e')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _deleteUser(int userId) async {
-    try {
-      await ApiService.deleteUser(userId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User deleted successfully')),
-      );
-      _loadUsers();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting user: $e')),
-      );
-    }
-  }
-
-  Future<void> _deleteSport(int sportId) async {
-    try {
-      await ApiService.deleteSport(sportId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sport deleted successfully')),
-      );
-      _loadSports();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting sport: $e')),
-      );
-    }
-  }
-
-  Future<void> _logout() async {
-    try {
-      await ApiService.logout();
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const WelcomePage()),
-          (Route<dynamic> route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error during logout: $e')),
-        );
-      }
-    }
-  }
+  final List<Map<String, dynamic>> _mockSports = [
+    {
+      'id': '1',
+      'name': 'Football',
+      'icon': Icons.sports_soccer,
+      'posts': 45,
+      'leagues': 12,
+      'admins': 3,
+    },
+    {
+      'id': '2',
+      'name': 'Basketball',
+      'icon': Icons.sports_basketball,
+      'posts': 32,
+      'leagues': 8,
+      'admins': 2,
+    },
+    {
+      'id': '3',
+      'name': 'Tennis',
+      'icon': Icons.sports_tennis,
+      'posts': 28,
+      'leagues': 6,
+      'admins': 1,
+    },
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1026,7 +890,12 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
         ),
         actions: [
           IconButton(
-            onPressed: _logout,
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const WelcomePage()),
+                (route) => false,
+              );
+            },
             icon: const Icon(Icons.logout),
           ),
         ],
@@ -1090,7 +959,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
           ),
           const SizedBox(height: 24),
 
-          // Stats Cards
+          // Stats Cards - FIXED: Using LayoutBuilder for responsive grid
           LayoutBuilder(
             builder: (context, constraints) {
               final cardWidth = constraints.maxWidth / 2 - 20;
@@ -1103,7 +972,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Total Admins',
-                          '${_users.where((u) => u['role'] == 'admin').length}',
+                          '${_mockAdmins.length}',
                           Icons.admin_panel_settings,
                           Colors.purple,
                         ),
@@ -1112,7 +981,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Total Sports',
-                          '${_sports.length}',
+                          '${_mockSports.length}',
                           Icons.sports,
                           const Color(0xFF43A047),
                         ),
@@ -1126,8 +995,8 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                       SizedBox(
                         width: cardWidth,
                         child: _buildStatCard(
-                          'Total Users',
-                          '${_users.length}',
+                          'Active Admins',
+                          '${_mockAdmins.where((a) => a['status'] == 'Active').length}',
                           Icons.people,
                           Colors.blue,
                         ),
@@ -1135,9 +1004,9 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
                       SizedBox(
                         width: cardWidth,
                         child: _buildStatCard(
-                          'Super Admins',
-                          '${_users.where((u) => u['role'] == 'super_admin').length}',
-                          Icons.supervisor_account,
+                          'Total Posts',
+                          '127',
+                          Icons.newspaper,
                           Colors.orange,
                         ),
                       ),
@@ -1168,6 +1037,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
             Icons.add_circle_outline,
             _showAddSportDialog,
           ),
+          _buildQuickActionButton('System Settings', Icons.settings, () {}),
         ],
       ),
     );
@@ -1193,86 +1063,101 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
           ),
         ),
         Expanded(
-          child: _isLoadingUsers
-              ? const Center(child: CircularProgressIndicator())
-              : _users.isEmpty
-                  ? const Center(child: Text('No users found'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _users.length,
-                      itemBuilder: (context, index) {
-                        final user = _users[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: CircleAvatar(
-                              backgroundColor: _adminColor.withOpacity(0.1),
-                              child: Icon(Icons.person, color: _adminColor),
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _mockAdmins.length,
+            itemBuilder: (context, index) {
+              final admin = _mockAdmins[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: CircleAvatar(
+                    backgroundColor: _adminColor.withOpacity(0.1),
+                    child: Icon(Icons.person, color: _adminColor),
+                  ),
+                  title: Text(
+                    admin['name']!,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(admin['email']!),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
                             ),
-                            title: Text(
-                              user['name'] ?? 'Unknown',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            decoration: BoxDecoration(
+                              color: _getSportColor(
+                                admin['sport']!,
+                              ).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Text(user['email'] ?? 'No email'),
-                                const SizedBox(height: 4),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _getRoleColor(user['role']).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        user['role']?.toString().toUpperCase() ?? 'UNKNOWN',
-                                        style: TextStyle(
-                                          color: _getRoleColor(user['role']),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    if (user['assigned_sport']?['name'] != null)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          user['assigned_sport']['name'],
-                                          style: const TextStyle(
-                                            color: Colors.green,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ],
+                            child: Text(
+                              admin['sport']!,
+                              style: TextStyle(
+                                color: _getSportColor(admin['sport']!),
+                                fontSize: 12,
+                              ),
                             ),
-                            trailing: user['role'] != 'super_admin'
-                                ? IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () => _showDeleteConfirmation(user['id'], user['name']),
-                                  )
-                                : null,
                           ),
-                        );
-                      },
-                    ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: admin['status'] == 'Active'
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              admin['status']!,
+                              style: TextStyle(
+                                color: admin['status'] == 'Active'
+                                    ? Colors.green
+                                    : Colors.red,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  trailing: PopupMenuButton(
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                      PopupMenuItem(
+                        value: 'toggle_status',
+                        child: Text(
+                          admin['status'] == 'Active'
+                              ? 'Deactivate'
+                              : 'Activate',
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -1298,54 +1183,62 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
           ),
         ),
         Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _sports.isEmpty
-                  ? const Center(child: Text('No sports found'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _sports.length,
-                      itemBuilder: (context, index) {
-                        final sport = _sports[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.sports,
-                                color: Colors.green,
-                              ),
-                            ),
-                            title: Text(
-                              sport['name'] ?? 'Unknown',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: sport['description'] != null
-                                ? Text(sport['description'])
-                                : null,
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  onPressed: () => _showEditSportDialog(sport),
-                                  icon: Icon(Icons.edit, color: _adminColor),
-                                ),
-                                IconButton(
-                                  onPressed: () => _showDeleteSportConfirmation(sport['id'], sport['name']),
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _mockSports.length,
+            itemBuilder: (context, index) {
+              final sport = _mockSports[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _getSportColor(sport['name']!).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    child: Icon(
+                      sport['icon'] as IconData,
+                      color: _getSportColor(sport['name']!),
+                    ),
+                  ),
+                  title: Text(
+                    sport['name']!,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
+                        children: [
+                          _buildSportStat('Posts', sport['posts']),
+                          _buildSportStat('Leagues', sport['leagues']),
+                          _buildSportStat('Admins', sport['admins']),
+                        ],
+                      ),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () => _showEditSportDialog(sport),
+                        icon: Icon(Icons.edit, color: _adminColor),
+                      ),
+                      IconButton(
+                        onPressed: () => _showDeleteSportDialog(sport['id']!),
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -1359,24 +1252,24 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   ) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12), // Reduced padding
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8), // Reduced padding
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Icon(icon, color: color, size: 20), // Smaller icon
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 8), // Reduced spacing
             Text(
               value,
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 20, // Smaller font
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1386,7 +1279,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 11,
+                fontSize: 11, // Smaller font
               ),
             ),
           ],
@@ -1424,12 +1317,38 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
     );
   }
 
-  Color _getRoleColor(String? role) {
-    switch (role) {
-      case 'super_admin':
-        return Colors.red;
-      case 'admin':
-        return Colors.purple;
+  Widget _buildSportStat(String label, dynamic value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 11, // Smaller font
+          ),
+        ),
+        Text(
+          value.toString(),
+          style: const TextStyle(
+            fontSize: 14, // Smaller font
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getSportColor(String sport) {
+    switch (sport.toLowerCase()) {
+      case 'football':
+        return const Color(0xFF43A047);
+      case 'basketball':
+        return Colors.orange[700]!;
+      case 'tennis':
+        return Colors.yellow[800]!;
+      case 'volleyball':
+        return Colors.blue[700]!;
       default:
         return Colors.grey;
     }
@@ -1438,112 +1357,11 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   void _showAddAdminDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create New Admin'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Admin Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter admin name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter email';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
-                  ),
-                  obscureText: true,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<int>(
-                  decoration: const InputDecoration(
-                    labelText: 'Assign Sport',
-                    border: OutlineInputBorder(),
-                  ),
-                  value: _selectedSportId,
-                  items: _sports.map((sport) {
-                    return DropdownMenuItem<int>(
-                      value: sport['id'],
-                      child: Text(sport['name']),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedSportId = value;
-                    });
-                  },
-                  validator: (value) {
-                    if (value == null) {
-                      return 'Please select a sport';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: _isLoading ? null : _createAdmin,
-            style: ElevatedButton.styleFrom(backgroundColor: _adminColor),
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Text('Create Admin'),
-          ),
-        ],
+      builder: (context) => AddAdminDialog(
+        onAdd: (adminData) {
+          print('Adding admin: $adminData');
+          Navigator.pop(context);
+        },
       ),
     );
   }
@@ -1551,227 +1369,49 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
   void _showAddSportDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create New Sport'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: _sportFormKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _sportNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Sport Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter sport name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _sportDescriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description (Optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _sportIconController,
-                  decoration: const InputDecoration(
-                    labelText: 'Icon (Optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: _isLoading ? null : _createSport,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Text('Create Sport'),
-          ),
-        ],
+      builder: (context) => AddSportDialog(
+        onAdd: (sportData) {
+          print('Adding sport: $sportData');
+          Navigator.pop(context);
+        },
       ),
     );
   }
 
   void _showEditSportDialog(Map<String, dynamic> sport) {
-    // Pre-fill the form with existing sport data
-    _sportNameController.text = sport['name'] ?? '';
-    _sportDescriptionController.text = sport['description'] ?? '';
-    _sportIconController.text = sport['icon'] ?? '';
+    showDialog(
+      context: context,
+      builder: (context) => AddSportDialog(
+        onAdd: (sportData) async {
+          print('Updating sport: $sportData');
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
 
+  void _showDeleteSportDialog(String sportId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Edit Sport'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: _sportFormKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _sportNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Sport Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter sport name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _sportDescriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description (Optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _sportIconController,
-                  decoration: const InputDecoration(
-                    labelText: 'Icon (Optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        title: const Text('Delete Sport'),
+        content: const Text(
+          'Are you sure you want to delete this sport? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: _isLoading ? null : () => _updateSport(sport['id']),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Text('Update Sport'),
+          TextButton(
+            onPressed: () {
+              print('Deleting sport: $sportId');
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
-    );
-  }
-
-  Future<void> _updateSport(int sportId) async {
-    if (!_sportFormKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      await ApiService.updateSport(
-        id: sportId,
-        name: _sportNameController.text,
-        description: _sportDescriptionController.text.isEmpty ? null : _sportDescriptionController.text,
-        icon: _sportIconController.text.isEmpty ? null : _sportIconController.text,
-      );
-      
-      _sportNameController.clear();
-      _sportDescriptionController.clear();
-      _sportIconController.clear();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sport updated successfully')),
-      );
-      _loadSports();
-      Navigator.of(context).pop();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating sport: $e')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  void _showDeleteSportConfirmation(int sportId, String sportName) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Sport'),
-          content: Text('Are you sure you want to delete sport "$sportName"? This action cannot be undone.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _deleteSport(sportId);
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showDeleteConfirmation(int userId, String userName) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete User'),
-          content: Text('Are you sure you want to delete user "$userName"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _deleteUser(userId);
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
     );
   }
 }
@@ -1780,7 +1420,7 @@ class _SuperAdminDashboardPageState extends State<SuperAdminDashboardPage> {
 class AdminDashboardPage extends StatefulWidget {
   final String? userRole;
   final String? adminSportName; // Updated variable name
-  
+
   const AdminDashboardPage({super.key, this.userRole, this.adminSportName});
 
   @override
@@ -1792,199 +1432,577 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   final Color _adminColor = const Color(0xFF9C27B0);
 
   // Admin state variables - initialize from widget
+  String? _userRole;
   String? _adminSportName;
-  String? _adminName;
-  
-  // Real data variables
-  List<dynamic> _posts = [];
-  List<dynamic> _sports = [];
-  bool _isLoadingPosts = false;
+  String? _selectedSport;
+
+  List<Map<String, dynamic>> _adminMatches = [];
+  bool _isMatchesLoading = false;
+  String? _matchesError;
 
   @override
   void initState() {
     super.initState();
     // Initialize admin info from widget
+    _userRole = widget.userRole;
     _adminSportName = widget.adminSportName;
-    _loadUserData();
-    _loadSports();
-    _loadPosts();
+    _fetchAdminPosts();
+    _fetchAdminMatches();
+    _loadLeaguesAndTeams();
+  }
+
+  int _sportIdFromName(String? sportName) {
+    switch (sportName?.toLowerCase()) {
+      case 'football':
+        return 1;
+      case 'basketball':
+        return 2;
+      case 'tennis':
+        return 3;
+      case 'volleyball':
+        return 4;
+      default:
+        return 1;
+    }
+  }
+
+  int _currentAdminSportId() {
+    final currentSport = _userRole == 'super_admin'
+        ? _selectedSport
+        : _adminSportName;
+    return _sportIdFromName(currentSport);
+  }
+
+  DateTime _parseMatchDateTime(Map<String, dynamic> m) {
+    final matchTime = (m['match_time'] ?? m['date_time'] ?? m['matchTime'])
+        ?.toString();
+    if (matchTime == null || matchTime.isEmpty) return DateTime(1970);
+    return DateTime.tryParse(matchTime) ?? DateTime(1970);
+  }
+
+  String _matchTitle(Map<String, dynamic> m) {
+    final homeTeam = (m['home_team']?['name'] ?? m['home_team_name'] ?? 'Home')
+        .toString();
+    final awayTeam = (m['away_team']?['name'] ?? m['away_team_name'] ?? 'Away')
+        .toString();
+    return '$homeTeam vs $awayTeam';
+  }
+
+  String _matchSubtitle(Map<String, dynamic> m) {
+    final league = (m['league']?['name'] ?? m['league_name'] ?? 'League')
+        .toString();
+    final dateTime = _parseMatchDateTime(m);
+    final status = (m['status'] ?? 'scheduled').toString();
+    return '$league • ${DateFormat('MMM d, h:mm a').format(dateTime)} • $status';
+  }
+
+  String _matchScoreText(Map<String, dynamic> m) {
+    final status = (m['status'] ?? 'scheduled').toString().toLowerCase();
+    final homeScore = m['home_score'];
+    final awayScore = m['away_score'];
+    if ((status == 'live' || status == 'finished') &&
+        homeScore != null &&
+        awayScore != null) {
+      return '${homeScore.toString()} - ${awayScore.toString()}';
+    }
+    return '-';
+  }
+
+  Future<void> _fetchAdminMatches() async {
+    if (!mounted) return;
+    setState(() {
+      _isMatchesLoading = true;
+      _matchesError = null;
+    });
+    try {
+      final raw = await ApiService.getMatches();
+      final sportId = _currentAdminSportId();
+      final matches = raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .where((m) {
+            final direct = m['sport_id'];
+            final sid = direct is int
+                ? direct
+                : int.tryParse((direct ?? '').toString());
+            final nested = m['sport'] is Map ? (m['sport'] as Map)['id'] : null;
+            final nestedSid = nested is int
+                ? nested
+                : int.tryParse((nested ?? '').toString());
+            final effectiveSid = sid ?? nestedSid;
+            return effectiveSid == null ? false : effectiveSid == sportId;
+          })
+          .toList();
+
+      matches.sort(
+        (a, b) => _parseMatchDateTime(b).compareTo(_parseMatchDateTime(a)),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _adminMatches = matches;
+        _isMatchesLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _matchesError = e.toString();
+        _isMatchesLoading = false;
+      });
+    }
+  }
+
+  Future<void> _showUpdateMatchDialog(Map<String, dynamic> match) async {
+    final matchId = (match['id'] ?? '').toString();
+    if (matchId.isEmpty) return;
+
+    final parentContext = context;
+
+    String status = (match['status'] ?? 'scheduled').toString();
+    final homeScoreController = TextEditingController(
+      text: (match['home_score'] ?? 0).toString(),
+    );
+    final awayScoreController = TextEditingController(
+      text: (match['away_score'] ?? 0).toString(),
+    );
+
+    final shouldRefresh = await showDialog<bool>(
+      context: parentContext,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (dialogContext) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> onSave() async {
+              setDialogState(() => isSaving = true);
+              final parsedHomeScore = int.tryParse(homeScoreController.text);
+              final parsedAwayScore = int.tryParse(awayScoreController.text);
+              final homeScore = status == 'scheduled' ? null : parsedHomeScore;
+              final awayScore = status == 'scheduled' ? null : parsedAwayScore;
+
+              try {
+                await ApiService.updateMatch(
+                  matchId: matchId,
+                  status: status,
+                  homeScore: homeScore,
+                  awayScore: awayScore,
+                );
+                if (dialogContext.mounted) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  Navigator.of(dialogContext, rootNavigator: true).pop(true);
+                }
+              } catch (e) {
+                if (parentContext.mounted) {
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    SnackBar(content: Text('Failed to update match: $e')),
+                  );
+                }
+                if (dialogContext.mounted) {
+                  setDialogState(() => isSaving = false);
+                }
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Update Match Result'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: status,
+                    decoration: const InputDecoration(
+                      labelText: 'Status',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'scheduled',
+                        child: Text('Scheduled'),
+                      ),
+                      DropdownMenuItem(value: 'live', child: Text('Live')),
+                      DropdownMenuItem(
+                        value: 'finished',
+                        child: Text('Finished'),
+                      ),
+                    ],
+                    onChanged: isSaving
+                        ? null
+                        : (v) {
+                            if (v == null) return;
+                            setDialogState(() {
+                              status = v;
+                            });
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: homeScoreController,
+                          decoration: const InputDecoration(
+                            labelText: 'Home Score',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          enabled: !isSaving,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: awayScoreController,
+                          decoration: const InputDecoration(
+                            labelText: 'Away Score',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          enabled: !isSaving,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.of(
+                          dialogContext,
+                          rootNavigator: true,
+                        ).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: isSaving ? null : onSave,
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    homeScoreController.dispose();
+    awayScoreController.dispose();
+
+    if (shouldRefresh == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _fetchAdminMatches();
+        }
+      });
+    }
+  }
+
+  Future<void> _confirmDeleteMatch(Map<String, dynamic> match) async {
+    final matchId = (match['id'] ?? '').toString();
+    if (matchId.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Match'),
+          content: Text(
+            'Are you sure you want to delete this match?\n\n${_matchTitle(match)}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await ApiService.deleteMatch(matchId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Match deleted successfully.')),
+      );
+      await _fetchAdminMatches();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete match: $e')));
+    }
+  }
+
+  Future<void> _loadLeaguesAndTeams() async {
+    setState(() => _isLoadingLeaguesTeams = true);
+    try {
+      int sportId;
+      final currentSport = _userRole == 'super_admin'
+          ? _selectedSport
+          : _adminSportName;
+      switch (currentSport?.toLowerCase()) {
+        case 'football':
+          sportId = 1;
+          break;
+        case 'basketball':
+          sportId = 2;
+          break;
+        case 'tennis':
+          sportId = 3;
+          break;
+        case 'volleyball':
+          sportId = 4;
+          break;
+        default:
+          sportId = 1;
+      }
+
+      final leaguesData = await ApiService.getLeaguesBySport(sportId);
+      setState(() {
+        _leagues = leaguesData;
+        if (_leagues.isNotEmpty) {
+          _matchLeagueId = _leagues[0]['id'];
+          _loadTeamsForLeague(_matchLeagueId!);
+        }
+      });
+    } catch (e) {
+      debugPrint('Error loading leagues: $e');
+    } finally {
+      setState(() => _isLoadingLeaguesTeams = false);
+    }
+  }
+
+  Future<void> _loadTeamsForLeague(int leagueId) async {
+    try {
+      final teamsData = await ApiService.getTeamsByLeague(leagueId);
+      setState(() {
+        _teams = teamsData;
+        _matchHomeTeamId = null;
+        _matchAwayTeamId = null;
+      });
+    } catch (e) {
+      debugPrint('Error loading teams: $e');
+    }
+  }
+
+  List<NewsArticle> _adminPosts = [];
+  bool _isPostsLoading = true;
+  String? _postsError;
+
+  Future<void> _fetchAdminPosts() async {
+    if (!mounted) return;
+    setState(() {
+      _isPostsLoading = true;
+      _postsError = null;
+    });
+    try {
+      final newsData = await ApiService.getNewsFeed();
+      if (!mounted) return;
+      setState(() {
+        _adminPosts = newsData
+            .map((data) => NewsArticle.fromJson(data))
+            .toList();
+        _isPostsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _postsError = e.toString();
+        _isPostsLoading = false;
+      });
+    }
   }
 
   // Create Tab State
   final _createFormKey = GlobalKey<FormState>();
   final _createTitleController = TextEditingController();
-  final _createDescriptionController = TextEditingController();
-  final _createContentController = TextEditingController();
+  final _createBodyController = TextEditingController();
   XFile? _createSelectedImage;
   bool _isCreateLoading = false;
   final ImagePicker _picker = ImagePicker();
 
+  // Match Tab State
+  final _matchFormKey = GlobalKey<FormState>();
+  int? _matchHomeTeamId;
+  int? _matchAwayTeamId;
+  int? _matchLeagueId;
+  DateTime _matchDate = DateTime.now();
+  TimeOfDay _matchTime = TimeOfDay.now();
+  String _matchStatus = 'scheduled';
+  final TextEditingController _homeScoreController = TextEditingController(
+    text: '0',
+  );
+  final TextEditingController _awayScoreController = TextEditingController(
+    text: '0',
+  );
+  List<dynamic> _leagues = [];
+  List<dynamic> _teams = [];
+  bool _isLoadingLeaguesTeams = false;
+
   @override
   void dispose() {
     _createTitleController.dispose();
-    _createDescriptionController.dispose();
-    _createContentController.dispose();
+    _createBodyController.dispose();
+    _homeScoreController.dispose();
+    _awayScoreController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadUserData() async {
-    try {
-      final userData = await ApiService.getUser();
-      setState(() {
-        _adminName = userData['name'];
-      });
-    } catch (e) {
-      // Handle error silently for now
-    }
-  }
-
-  Future<void> _loadSports() async {
-    try {
-      final sports = await ApiService.getSports();
-      setState(() {
-        _sports = sports;
-      });
-    } catch (e) {
-      // Handle error silently for now
-    }
-  }
-
-  Future<void> _loadPosts() async {
-    setState(() => _isLoadingPosts = true);
-    try {
-      // Get only the current admin's posts
-      final myPosts = await ApiService.getMyPosts();
-      setState(() {
-        _posts = myPosts;
-        _isLoadingPosts = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingPosts = false);
-      // Handle error silently for now
-    }
-  }
-
-  Future<void> _logout() async {
-    try {
-      await ApiService.logout();
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const WelcomePage()),
-          (Route<dynamic> route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error during logout: $e')),
-        );
-      }
-    }
-  }
-
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: _adminColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.admin_panel_settings,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Admin Dashboard',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+  Widget build(BuildContext context) {
+    if (_selectedTab == 3 && _leagues.isEmpty && !_isLoadingLeaguesTeams) {
+      _loadLeaguesAndTeams();
+    }
+    final myPosts = _adminPosts;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: _adminColor,
+                borderRadius: BorderRadius.circular(10),
               ),
-              if (_adminSportName != null)
-                Text(
-                  _adminSportName!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withOpacity(0.8),
+              child: const Icon(
+                Icons.admin_panel_settings,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: _adminColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.admin_panel_settings,
+                    color: Colors.white,
+                    size: 16,
                   ),
                 ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  'Admin Dashboard',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const WelcomePage()),
+                (route) => false,
+              );
+            },
+            icon: const Icon(Icons.logout),
           ),
         ],
       ),
-      actions: [
-        IconButton(
-          onPressed: _logout,
-          icon: const Icon(Icons.logout),
-        ),
-      ],
-    ),
-    body: _buildTabContent(),
-    bottomNavigationBar: BottomNavigationBar(
-      currentIndex: _selectedTab,
-      onTap: (index) {
-        setState(() {
-          _selectedTab = index;
-        });
-      },
-      selectedItemColor: _adminColor,
-      unselectedItemColor: Colors.grey,
-      type: BottomNavigationBarType.fixed,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.dashboard),
-          label: 'Dashboard',
-        ),
-        BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: 'Posts'),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.add_circle),
-          label: 'Create',
-        ),
-      ],
-    ),
-    floatingActionButton: _selectedTab == 1
-        ? FloatingActionButton(
-            backgroundColor: _adminColor,
-            onPressed: () => _showCreatePostDialog(),
-            child: const Icon(Icons.add, color: Colors.white),
-          )
-        : null,
-  );
-}
+      body: _buildTabContent(myPosts),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedTab,
+        onTap: (index) {
+          setState(() {
+            _selectedTab = index;
+          });
+          if (index == 0) {
+            _fetchAdminMatches();
+          }
+        },
+        selectedItemColor: _adminColor,
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.newspaper), label: 'Posts'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle),
+            label: 'Create News',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.sports_score),
+            label: 'Add Match',
+          ),
+        ],
+      ),
+      floatingActionButton: _selectedTab == 1
+          ? FloatingActionButton(
+              backgroundColor: _adminColor,
+              onPressed: () => _showCreatePostDialog(),
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
+    );
+  }
 
-  Widget _buildTabContent() {
+  Widget _buildTabContent(List<NewsArticle> myPosts) {
+    if (_isPostsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_postsError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error: $_postsError'),
+            ElevatedButton(
+              onPressed: _fetchAdminPosts,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
     switch (_selectedTab) {
       case 0:
-        return _buildDashboardTab();
+        return _buildDashboardTab(myPosts);
       case 1:
-        return _buildPostsTab();
+        return _buildPostsTab(myPosts);
       case 2:
         return _buildCreateTab();
+      case 3:
+        return _buildMatchesTab();
       default:
-        return _buildDashboardTab();
+        return _buildDashboardTab(myPosts);
     }
   }
 
-  Widget _buildDashboardTab() {
+  Widget _buildDashboardTab(List<NewsArticle> myPosts) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Welcome, ${_adminName ?? 'Admin'}',
+            'Welcome, Admin',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -1993,14 +2011,14 @@ Widget build(BuildContext context) {
           ),
           const SizedBox(height: 8),
           Text(
-            'You can manage posts for ${_adminSportName ?? 'your assigned sport'}',
+            'You can manage posts for ${_adminSportName ?? "All Sports"}',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 24),
 
-          // Stats Cards with real data
+          // Stats Cards - FIXED: Using LayoutBuilder for responsive grid
           LayoutBuilder(
             builder: (context, constraints) {
               final cardWidth = constraints.maxWidth / 2 - 20;
@@ -2013,7 +2031,7 @@ Widget build(BuildContext context) {
                         width: cardWidth,
                         child: _buildStatCard(
                           'My Posts',
-                          '${_posts.length}',
+                          '${myPosts.length}',
                           Icons.newspaper,
                           Colors.blue,
                         ),
@@ -2022,7 +2040,7 @@ Widget build(BuildContext context) {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Total Likes',
-                          '${_posts.fold<int>(0, (sum, post) => sum + ((post['likes'] as int?) ?? 0))}',
+                          '${myPosts.fold(0, (sum, post) => sum + post.likes)}',
                           Icons.thumb_up,
                           Colors.green,
                         ),
@@ -2036,8 +2054,8 @@ Widget build(BuildContext context) {
                       SizedBox(
                         width: cardWidth,
                         child: _buildStatCard(
-                          'Today\'s Posts',
-                          '${_posts.where((p) => _isToday(p['created_at'])).length}',
+                          'Recent Posts',
+                          '${myPosts.where((p) => DateTime.now().difference(p.publishedAt).inDays < 7).length}',
                           Icons.today,
                           Colors.orange,
                         ),
@@ -2046,7 +2064,7 @@ Widget build(BuildContext context) {
                         width: cardWidth,
                         child: _buildStatCard(
                           'Engagement',
-                          '${_posts.isNotEmpty ? (_posts.fold<int>(0, (sum, post) => sum + ((post['likes'] as int?) ?? 0)) ~/ _posts.length) : 0}',
+                          '${myPosts.isNotEmpty ? (myPosts.fold(0, (sum, post) => sum + post.likes) ~/ myPosts.length) : 0}',
                           Icons.trending_up,
                           Colors.purple,
                         ),
@@ -2060,6 +2078,144 @@ Widget build(BuildContext context) {
 
           const SizedBox(height: 24),
           Text(
+            'Recent Added Matches',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_isMatchesLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_matchesError != null)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Error: $_matchesError'),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _fetchAdminMatches,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_adminMatches.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.sports_score,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No matches yet',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add your first match from the Add Match tab',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _adminMatches.length,
+              itemBuilder: (context, index) {
+                final m = _adminMatches[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    title: Text(
+                      _matchTitle(m),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _matchSubtitle(m),
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.score, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                _matchScoreText(m),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () => _showUpdateMatchDialog(m),
+                                icon: const Icon(Icons.edit, size: 18),
+                                label: const Text('Update Result'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _adminColor,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () => _confirmDeleteMatch(m),
+                                icon: const Icon(
+                                  Icons.delete,
+                                  size: 18,
+                                  color: Colors.red,
+                                ),
+                                label: const Text(
+                                  'Delete',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+
+          const SizedBox(height: 24),
+          Text(
             'Recent Posts',
             style: TextStyle(
               fontSize: 20,
@@ -2068,9 +2224,7 @@ Widget build(BuildContext context) {
             ),
           ),
           const SizedBox(height: 12),
-          if (_isLoadingPosts)
-            const Center(child: CircularProgressIndicator())
-          else if (_posts.isEmpty)
+          if (myPosts.isEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -2091,7 +2245,7 @@ Widget build(BuildContext context) {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "Create your first post for '${_adminSportName ?? 'your sport'}'",
+                      "Create your first post for 'All Sports'",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -2110,29 +2264,14 @@ Widget build(BuildContext context) {
               ),
             )
           else
-            ..._posts.take(2).map((post) => _buildPostCard(post)).toList(),
+            ...myPosts.take(2).map((post) => _buildPostCard(post)).toList(),
         ],
       ),
     );
   }
 
-  bool _isToday(String? createdAt) {
-    if (createdAt == null) return false;
-    try {
-      final date = DateTime.parse(createdAt);
-      final now = DateTime.now();
-      return date.day == now.day && date.month == now.month && date.year == now.year;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Widget _buildPostsTab() {
-    if (_isLoadingPosts) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_posts.isEmpty) {
+  Widget _buildPostsTab(List<NewsArticle> myPosts) {
+    if (myPosts.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -2152,7 +2291,7 @@ Widget build(BuildContext context) {
             ),
             const SizedBox(height: 8),
             Text(
-              "Create your first post for '${_adminSportName ?? 'your sport'}'",
+              "Create your first post for '${_adminSportName ?? "All Sports"}'",
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -2163,12 +2302,12 @@ Widget build(BuildContext context) {
     }
 
     return RefreshIndicator(
-      onRefresh: _loadPosts,
+      onRefresh: _fetchAdminPosts,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _posts.length,
+        itemCount: myPosts.length,
         itemBuilder: (context, index) {
-          final post = _posts[index];
+          final post = myPosts[index];
           return _buildPostCard(post);
         },
       ),
@@ -2193,7 +2332,7 @@ Widget build(BuildContext context) {
             ),
             const SizedBox(height: 8),
             Text(
-              "Create a new post for '${_adminSportName ?? 'your sport'}'",
+              "Create a new post for 'All Sports'",
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -2219,21 +2358,7 @@ Widget build(BuildContext context) {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
-                      controller: _createDescriptionController,
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Please enter a description'
-                          : null,
-                      decoration: InputDecoration(
-                        labelText: 'Post Description',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      maxLines: 2,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _createContentController,
+                      controller: _createBodyController,
                       validator: (value) => value == null || value.isEmpty
                           ? 'Please enter content'
                           : null,
@@ -2351,20 +2476,32 @@ Widget build(BuildContext context) {
     if (_createFormKey.currentState!.validate()) {
       setState(() => _isCreateLoading = true);
       try {
-        // Find the sport ID for the admin's assigned sport
-        int sportId = 1; // Default fallback
-        if (_adminSportName != null && _sports.isNotEmpty) {
-          final sport = _sports.firstWhere(
-            (s) => s['name'].toString().toLowerCase() == _adminSportName!.toLowerCase(),
-            orElse: () => _sports.first,
-          );
-          sportId = sport['id'] ?? 1;
+        int sportId;
+        // Use the selected sport from admin login, not hardcoded
+        final selectedSport = _userRole == 'super_admin'
+            ? _selectedSport
+            : _adminSportName;
+        switch (selectedSport?.toLowerCase()) {
+          case 'football':
+            sportId = 1;
+            break;
+          case 'basketball':
+            sportId = 2;
+            break;
+          case 'tennis':
+            sportId = 3;
+            break;
+          case 'volleyball':
+            sportId = 4;
+            break;
+          default:
+            sportId = 1;
         }
 
         await ApiService.createPost(
           title: _createTitleController.text,
-          description: _createDescriptionController.text,
-          content: _createContentController.text,
+          description: _createBodyController.text,
+          content: _createBodyController.text,
           sportId: sportId,
           category: 'General',
           imagePath: _createSelectedImage?.path,
@@ -2376,14 +2513,12 @@ Widget build(BuildContext context) {
           );
           // Clear form
           _createTitleController.clear();
-          _createDescriptionController.clear();
-          _createContentController.clear();
+          _createBodyController.clear();
           setState(() {
             _createSelectedImage = null;
             _selectedTab = 1; // Switch to Post list tab to see it
           });
-          // Reload posts to show the new one
-          _loadPosts();
+          _fetchAdminPosts(); // Refresh list
         }
       } catch (e) {
         if (mounted) {
@@ -2397,7 +2532,7 @@ Widget build(BuildContext context) {
     }
   }
 
-  Widget _buildPostCard(Map<String, dynamic> post) {
+  Widget _buildPostCard(NewsArticle post) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -2405,16 +2540,16 @@ Widget build(BuildContext context) {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: _getSportColor(post['sport']?['name'] ?? 'Unknown').withOpacity(0.1),
+            color: _getSportColor(post.sport).withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
-            _getSportIcon(post['sport']?['name'] ?? 'Unknown'),
-            color: _getSportColor(post['sport']?['name'] ?? 'Unknown'),
+            _getSportIcon(post.sport),
+            color: _getSportColor(post.sport),
           ),
         ),
         title: Text(
-          post['title'] ?? 'Untitled',
+          post.title,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Column(
@@ -2424,7 +2559,7 @@ Widget build(BuildContext context) {
             Row(
               children: [
                 Text(
-                  '${post['sport']?['name'] ?? 'Unknown'} • ${_formatDate(post['created_at'])}',
+                  '${post.sport} • ${DateFormat('MMM d, h:mm a').format(post.publishedAt)}',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -2434,9 +2569,9 @@ Widget build(BuildContext context) {
             ),
             const SizedBox(height: 8),
             Text(
-              (post['content'] as String? ?? '').length > 100
-                  ? '${(post['content'] as String? ?? '').substring(0, 100)}...'
-                  : post['content'] ?? '',
+              post.description.length > 100
+                  ? '${post.description.substring(0, 100)}...'
+                  : post.description,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -2447,17 +2582,7 @@ Widget build(BuildContext context) {
                 Icon(Icons.thumb_up, size: 14, color: Colors.grey[500]),
                 const SizedBox(width: 4),
                 Text(
-                  '${(post['likes'] as int?) ?? 0} likes',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Icon(Icons.person, size: 14, color: Colors.grey[500]),
-                const SizedBox(width: 4),
-                Text(
-                  post['author']?['name'] ?? 'Unknown',
+                  '${post.likes} likes',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -2467,48 +2592,21 @@ Widget build(BuildContext context) {
             ),
           ],
         ),
-        trailing: PopupMenuButton(
-          onSelected: (value) {
-            switch (value) {
-              case 'edit':
-                _showEditPostDialog(post);
-                break;
-              case 'delete':
-                _showDeletePostConfirmation(post['id'], post['title']);
-                break;
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'edit', child: Text('Edit')),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Text('Delete', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
+        trailing:
+            post.author ==
+                _userRole // Simple check for ownership
+            ? PopupMenuButton(
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Delete', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              )
+            : null,
       ),
     );
-  }
-
-  String _formatDate(String? dateString) {
-    if (dateString == null) return 'Unknown';
-    try {
-      final date = DateTime.parse(dateString);
-      final now = DateTime.now();
-      final difference = now.difference(date);
-
-      if (difference.inDays > 0) {
-        return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
-      } else if (difference.inHours > 0) {
-        return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
-      } else if (difference.inMinutes > 0) {
-        return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
-      } else {
-        return 'Just now';
-      }
-    } catch (e) {
-      return 'Unknown';
-    }
   }
 
   Widget _buildStatCard(
@@ -2585,179 +2683,416 @@ Widget build(BuildContext context) {
     }
   }
 
-  void _showEditPostDialog(Map<String, dynamic> post) {
-    // Pre-fill the form with existing post data
-    _createTitleController.text = post['title'] ?? '';
-    _createDescriptionController.text = post['description'] ?? '';
-    _createContentController.text = post['content'] ?? '';
-
+  void _showCreatePostDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Post'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: _createFormKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _createTitleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Post Title',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a title';
-                    }
-                    return null;
-                  },
+      builder: (context) => CreatePostDialog(
+        onPost: (postData) async {
+          try {
+            int sportId;
+            final currentSport = _userRole == 'super_admin'
+                ? _selectedSport
+                : _adminSportName;
+            switch (currentSport?.toLowerCase()) {
+              case 'football':
+                sportId = 1;
+                break;
+              case 'basketball':
+                sportId = 2;
+                break;
+              case 'tennis':
+                sportId = 3;
+                break;
+              case 'volleyball':
+                sportId = 4;
+                break;
+              default:
+                sportId = 1; // Default or handle error
+            }
+
+            await ApiService.createPost(
+              title: postData['title'] as String,
+              description: postData['description'] as String,
+              content: postData['content'] as String,
+              sportId: (postData['sport_id'] as int?) ?? sportId,
+              category: (postData['category'] as String?) ?? 'General',
+              imagePath: postData['image_path'] as String?,
+            );
+
+            if (mounted) {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('News post created successfully!'),
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _createDescriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Post Description',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _createContentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Post Content',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 5,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter content';
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: _isCreateLoading ? null : () => _updatePost(post['id']),
-            style: ElevatedButton.styleFrom(backgroundColor: _adminColor),
-            child: _isCreateLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Text('Update Post'),
-          ),
-        ],
+              );
+              _fetchAdminPosts(); // Refresh list
+            }
+          } catch (e) {
+            // Error is handled in dialog, but if it propagates:
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to create post: $e')),
+              );
+            }
+            rethrow; // Re-throw so dialog stops loading if we want, OR dialog handles it.
+            // Actually dialog catches it, so we should throw.
+          }
+        },
       ),
     );
   }
 
-  Future<void> _updatePost(int postId) async {
-    if (!_createFormKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() => _isCreateLoading = true);
-    try {
-      // Find the sport ID for the admin's assigned sport
-      int sportId = 1; // Default fallback
-      if (_adminSportName != null && _sports.isNotEmpty) {
-        final sport = _sports.firstWhere(
-          (s) => s['name'].toString().toLowerCase() == _adminSportName!.toLowerCase(),
-          orElse: () => _sports.first,
-        );
-        sportId = sport['id'] ?? 1;
-      }
-
-      await ApiService.updatePost(
-        id: postId,
-        title: _createTitleController.text,
-        description: _createDescriptionController.text,
-        content: _createContentController.text,
-        sportId: sportId,
-        category: 'General',
-      );
-      
-      _createTitleController.clear();
-      _createDescriptionController.clear();
-      _createContentController.clear();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Post updated successfully')),
-      );
-      _loadPosts();
-      Navigator.of(context).pop();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating post: $e')),
-      );
-    } finally {
-      setState(() => _isCreateLoading = false);
-    }
-  }
-
-  void _showDeletePostConfirmation(int postId, String postTitle) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Post'),
-          content: Text('Are you sure you want to delete post "$postTitle"? This action cannot be undone.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+  Widget _buildMatchesTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _matchFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Schedule New Match',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _deletePost(postId);
-              },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
+            const SizedBox(height: 8),
+            Text(
+              "Add a new match for '${_adminSportName ?? "All Sports"}'",
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // League Dropdown
+                    DropdownButtonFormField<int>(
+                      value: _matchLeagueId,
+                      decoration: const InputDecoration(
+                        labelText: 'League',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _leagues.map<DropdownMenuItem<int>>((league) {
+                        return DropdownMenuItem<int>(
+                          value: league['id'],
+                          child: Text(league['name']),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _matchLeagueId = value;
+                          if (value != null) _loadTeamsForLeague(value);
+                        });
+                      },
+                      validator: (value) =>
+                          value == null ? 'Please select a league' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // Home Team Dropdown
+                    DropdownButtonFormField<int>(
+                      value: _matchHomeTeamId,
+                      decoration: const InputDecoration(
+                        labelText: 'Home Team',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _teams.map<DropdownMenuItem<int>>((team) {
+                        return DropdownMenuItem<int>(
+                          value: team['id'],
+                          child: Text(team['name']),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() => _matchHomeTeamId = value);
+                      },
+                      validator: (value) =>
+                          value == null ? 'Please select home team' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // Away Team Dropdown
+                    DropdownButtonFormField<int>(
+                      value: _matchAwayTeamId,
+                      decoration: const InputDecoration(
+                        labelText: 'Away Team',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _teams.map<DropdownMenuItem<int>>((team) {
+                        return DropdownMenuItem<int>(
+                          value: team['id'],
+                          child: Text(team['name']),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() => _matchAwayTeamId = value);
+                      },
+                      validator: (value) {
+                        if (value == null) return 'Please select away team';
+                        if (value == _matchHomeTeamId) {
+                          return 'Away team cannot be the same as home team';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Status Dropdown
+                    DropdownButtonFormField<String>(
+                      value: _matchStatus,
+                      decoration: const InputDecoration(
+                        labelText: 'Match Status',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'scheduled',
+                          child: Text('Scheduled'),
+                        ),
+                        DropdownMenuItem(value: 'live', child: Text('Live')),
+                        DropdownMenuItem(
+                          value: 'finished',
+                          child: Text('Finished'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _matchStatus = value!;
+                          // Reset scores to 0-0 when status changes to live
+                          if (value == 'live') {
+                            _homeScoreController.text = '0';
+                            _awayScoreController.text = '0';
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Score Input (only show for live or finished matches)
+                    if (_matchStatus == 'live' || _matchStatus == 'finished')
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _homeScoreController,
+                              decoration: const InputDecoration(
+                                labelText: 'Home Score',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              enabled:
+                                  _matchStatus == 'live' ||
+                                  _matchStatus == 'finished',
+                              validator: (value) {
+                                if ((_matchStatus == 'live' ||
+                                        _matchStatus == 'finished') &&
+                                    (value == null || value.isEmpty)) {
+                                  return 'Please enter home score';
+                                }
+                                if (value != null &&
+                                    value.isNotEmpty &&
+                                    int.tryParse(value) == null) {
+                                  return 'Please enter a valid number';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text('-', style: TextStyle(fontSize: 24)),
+                          ),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _awayScoreController,
+                              decoration: const InputDecoration(
+                                labelText: 'Away Score',
+                                border: OutlineInputBorder(),
+                              ),
+                              keyboardType: TextInputType.number,
+                              enabled:
+                                  _matchStatus == 'live' ||
+                                  _matchStatus == 'finished',
+                              validator: (value) {
+                                if ((_matchStatus == 'live' ||
+                                        _matchStatus == 'finished') &&
+                                    (value == null || value.isEmpty)) {
+                                  return 'Please enter away score';
+                                }
+                                if (value != null &&
+                                    value.isNotEmpty &&
+                                    int.tryParse(value) == null) {
+                                  return 'Please enter a valid number';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (_matchStatus == 'live' || _matchStatus == 'finished')
+                      const SizedBox(height: 16),
+                    // Date & Time Selectors
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _matchDate,
+                                firstDate: DateTime.now().subtract(
+                                  const Duration(days: 365),
+                                ),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 365),
+                                ),
+                              );
+                              if (picked != null) {
+                                setState(() => _matchDate = picked);
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Date',
+                                border: OutlineInputBorder(),
+                              ),
+                              child: Text(
+                                DateFormat('yyyy-MM-dd').format(_matchDate),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: _matchTime,
+                              );
+                              if (picked != null) {
+                                setState(() => _matchTime = picked);
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Time',
+                                border: OutlineInputBorder(),
+                              ),
+                              child: Text(_matchTime.format(context)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _isCreateLoading ? null : _submitMatch,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _adminColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _isCreateLoading
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text(
+                                'Add Match',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Future<void> _deletePost(int postId) async {
-    try {
-      await ApiService.deletePost(postId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Post deleted successfully')),
-      );
-      _loadPosts();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting post: $e')),
-      );
+  Future<void> _submitMatch() async {
+    if (_matchFormKey.currentState!.validate()) {
+      setState(() => _isCreateLoading = true);
+      try {
+        int sportId;
+        final currentSport = _userRole == 'super_admin'
+            ? _selectedSport
+            : _adminSportName;
+        switch (currentSport?.toLowerCase()) {
+          case 'football':
+            sportId = 1;
+            break;
+          case 'basketball':
+            sportId = 2;
+            break;
+          case 'tennis':
+            sportId = 3;
+            break;
+          case 'volleyball':
+            sportId = 4;
+            break;
+          default:
+            sportId = 1;
+        }
+
+        final matchDateTime = DateTime(
+          _matchDate.year,
+          _matchDate.month,
+          _matchDate.day,
+          _matchTime.hour,
+          _matchTime.minute,
+        );
+
+        int? homeScore = _matchStatus == 'live' || _matchStatus == 'finished'
+            ? int.tryParse(_homeScoreController.text)
+            : null;
+        int? awayScore = _matchStatus == 'live' || _matchStatus == 'finished'
+            ? int.tryParse(_awayScoreController.text)
+            : null;
+
+        await ApiService.createMatch(
+          homeTeamId: _matchHomeTeamId!,
+          awayTeamId: _matchAwayTeamId!,
+          leagueId: _matchLeagueId!,
+          sportId: sportId,
+          matchTime: matchDateTime.toIso8601String(),
+          status: _matchStatus,
+          homeScore: homeScore,
+          awayScore: awayScore,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Match added successfully!')),
+          );
+          setState(() {
+            _selectedTab = 0; // Go back to dashboard
+          });
+          await _fetchAdminMatches();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to add match: $e')));
+        }
+      } finally {
+        if (mounted) setState(() => _isCreateLoading = false);
+      }
     }
-  }
-
-  void _showCreatePostDialog() {
-    // Clear form fields
-    _createTitleController.clear();
-    _createDescriptionController.clear();
-    _createContentController.clear();
-    setState(() => _createSelectedImage = null);
-
-    setState(() => _selectedTab = 2); // Switch to Create tab
   }
 }
 
@@ -3351,10 +3686,7 @@ class _EditSportDialogState extends State<EditSportDialog> {
 class CreatePostDialog extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic>) onPost;
 
-  const CreatePostDialog({
-    super.key,
-    required this.onPost,
-  });
+  const CreatePostDialog({super.key, required this.onPost});
 
   @override
   State<CreatePostDialog> createState() => _CreatePostDialogState();
@@ -3471,10 +3803,7 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.sports,
-                          color: _getSportColor('Football'),
-                        ),
+                        Icon(Icons.sports, color: _getSportColor('Football')),
                         const SizedBox(width: 12),
                         Text(
                           "Sport: 'All Sports'",
@@ -3551,7 +3880,10 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
                                     try {
                                       await widget.onPost({
                                         'title': _titleController.text,
-                                        'body': _bodyController.text,
+                                        'description': _bodyController.text,
+                                        'content': _bodyController.text,
+                                        'sport_id': 1,
+                                        'category': 'General',
                                         'image_path': _selectedImage?.path,
                                       });
                                       // Dialog closed by parent on success or we can close it here if parent doesn't

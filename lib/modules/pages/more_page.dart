@@ -21,6 +21,7 @@ class _MorePageState extends State<MorePage> {
   String _userBio = "Sports enthusiast";
   String _userRole = "user";
   bool _isLoadingUserData = true;
+  bool _isLoading = false;
 
   // Settings
   bool _notificationsEnabled = true;
@@ -59,7 +60,6 @@ class _MorePageState extends State<MorePage> {
       });
     };
     isDarkModeNotifier.addListener(_darkModeListener);
-    
     _loadUserData();
   }
 
@@ -87,6 +87,7 @@ class _MorePageState extends State<MorePage> {
         _userEmail = 'Error';
         _isLoadingUserData = false;
       });
+      _showErrorSnackbar('Failed to load profile');
     }
   }
 
@@ -208,14 +209,28 @@ class _MorePageState extends State<MorePage> {
                     border: Border.all(color: primaryGreen, width: 2),
                   ),
                   child: Center(
-                    child: Text(
-                      _userName.split(' ').map((n) => n[0]).join(),
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: primaryGreen,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(
+                            _userName.isNotEmpty
+                                ? _userName
+                                      .trim()
+                                      .split(' ')
+                                      .where((n) => n.isNotEmpty)
+                                      .map((n) => n[0])
+                                      .join()
+                                      .toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: primaryGreen,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(width: 20),
@@ -239,13 +254,20 @@ class _MorePageState extends State<MorePage> {
                           const SizedBox(width: 8),
                           if (_userRole != 'user')
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                color: _userRole == 'super_admin' ? Colors.purple : Colors.orange,
+                                color: _userRole == 'super_admin'
+                                    ? Colors.purple
+                                    : Colors.orange,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                _userRole == 'super_admin' ? 'Super Admin' : 'Admin',
+                                _userRole == 'super_admin'
+                                    ? 'Super Admin'
+                                    : 'Admin',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
@@ -263,16 +285,6 @@ class _MorePageState extends State<MorePage> {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _userBio,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -304,32 +316,8 @@ class _MorePageState extends State<MorePage> {
                   icon: Icons.email_outlined,
                   title: 'Email Address',
                   value: _userEmail,
-                  onTap: () => _editField('Email', _userEmail, (value) {
-                    setState(() {
-                      _userEmail = value;
-                    });
-                  }),
-                ),
-                const SizedBox(height: 12),
-                _buildProfileDetailItem(
-                  icon: Icons.phone_outlined,
-                  title: 'Phone Number',
-                  value: _userPhone,
-                  onTap: () => _editField('Phone Number', _userPhone, (value) {
-                    setState(() {
-                      _userPhone = value;
-                    });
-                  }),
-                ),
-                const SizedBox(height: 12),
-                _buildProfileDetailItem(
-                  icon: Icons.info_outline,
-                  title: 'Bio',
-                  value: _userBio,
-                  onTap: () => _editField('Bio', _userBio, (value) {
-                    setState(() {
-                      _userBio = value;
-                    });
+                  onTap: () => _editField('Email', _userEmail, (value) async {
+                    await _saveProfile(_userName, value);
                   }),
                 ),
                 const SizedBox(height: 12),
@@ -721,6 +709,26 @@ class _MorePageState extends State<MorePage> {
     );
   }
 
+  Future<void> _saveProfile(String name, String email) async {
+    setState(() => _isLoading = true);
+    try {
+      await ApiService.updateProfile(name: name, email: email);
+      if (mounted) {
+        setState(() {
+          _userName = name;
+          _userEmail = email;
+          _isLoading = false;
+        });
+        _showSuccessSnackbar('Profile updated successfully');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showErrorSnackbar('Failed to update profile: $e');
+      }
+    }
+  }
+
   Widget _buildLogoutButton() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -784,9 +792,7 @@ class _MorePageState extends State<MorePage> {
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (value) {
-                  setState(() {
-                    _userName = value;
-                  });
+                  _userName = value;
                 },
               ),
               const SizedBox(height: 16),
@@ -797,24 +803,7 @@ class _MorePageState extends State<MorePage> {
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (value) {
-                  setState(() {
-                    _userEmail = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: TextEditingController(text: _userBio),
-                decoration: const InputDecoration(
-                  labelText: 'Bio',
-                  border: OutlineInputBorder(),
-                  hintText: 'Tell us about yourself...',
-                ),
-                maxLines: 3,
-                onChanged: (value) {
-                  setState(() {
-                    _userBio = value;
-                  });
+                  _userEmail = value;
                 },
               ),
             ],
@@ -828,7 +817,7 @@ class _MorePageState extends State<MorePage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _showSuccessSnackbar('Profile updated successfully');
+              _saveProfile(_userName, _userEmail);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryGreen,
@@ -858,7 +847,7 @@ class _MorePageState extends State<MorePage> {
             hintText: 'Enter new $fieldName',
             border: const OutlineInputBorder(),
           ),
-          maxLines: fieldName == 'Bio' ? 3 : 1,
+          maxLines: 1,
         ),
         actions: [
           TextButton(
@@ -1153,7 +1142,7 @@ class _MorePageState extends State<MorePage> {
     try {
       await ApiService.logout();
       _showSuccessSnackbar('Logged out successfully');
-      
+
       // Navigate to welcome page
       Navigator.pushAndRemoveUntil(
         context,
