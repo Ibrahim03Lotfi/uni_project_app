@@ -23,6 +23,74 @@ class UserPreferenceController extends Controller
         ]);
     }
 
+    // Follow (add) sports without removing existing
+    public function followSports(Request $request)
+    {
+        $request->validate([
+            'sport_ids' => 'required|array',
+            'sport_ids.*' => 'exists:sports,id',
+        ]);
+
+        $user = $request->user();
+        $user->preferredSports()->syncWithoutDetaching($request->sport_ids);
+
+        return response()->json([
+            'message' => 'Sports followed successfully',
+            'sports' => $user->preferredSports()->get(),
+        ]);
+    }
+
+    // Follow (add) teams without removing existing
+    public function followTeams(Request $request)
+    {
+        $request->validate([
+            'team_ids' => 'required|array',
+            'team_ids.*' => 'exists:teams,id',
+        ]);
+
+        $user = $request->user();
+        $user->preferredTeams()->syncWithoutDetaching($request->team_ids);
+
+        return response()->json([
+            'message' => 'Teams followed successfully',
+            'teams' => $user->preferredTeams()->get(),
+        ]);
+    }
+
+    // Follow (add) leagues without removing existing
+    public function followLeagues(Request $request)
+    {
+        $request->validate([
+            'league_ids' => 'required|array',
+            'league_ids.*' => 'exists:leagues,id',
+        ]);
+
+        $user = $request->user();
+        $user->preferredLeagues()->syncWithoutDetaching($request->league_ids);
+
+        return response()->json([
+            'message' => 'Leagues followed successfully',
+            'leagues' => $user->preferredLeagues()->get(),
+        ]);
+    }
+
+    // Follow (add) players without removing existing
+    public function followPlayers(Request $request)
+    {
+        $request->validate([
+            'player_ids' => 'required|array',
+            'player_ids.*' => 'exists:players,id',
+        ]);
+
+        $user = $request->user();
+        $user->preferredPlayers()->syncWithoutDetaching($request->player_ids);
+
+        return response()->json([
+            'message' => 'Players followed successfully',
+            'players' => $user->preferredPlayers()->get(),
+        ]);
+    }
+
     // Update sports preferences
     public function updateSports(Request $request)
     {

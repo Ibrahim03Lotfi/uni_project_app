@@ -39,22 +39,33 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   List<dynamic> _posts = [];
   List<dynamic> _filteredPosts = [];
 
+  Map<String, dynamic>? _stats;
+  bool _isStatsLoading = false;
+  String? _statsError;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadStats();
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
       final sportsResponse = await ApiService.getSports();
-      final postsResponse = await ApiService.getNewsFeed();
+      final postsResponse = await ApiService.getMyPosts();
 
       setState(() {
         _sports = sportsResponse;
         _posts = postsResponse;
         _filteredPosts = postsResponse;
+        
+        // Auto-select admin's assigned sport for regular admins
+        if (widget.userRole == 'admin' && widget.adminSportName != null) {
+          _selectedSport = widget.adminSportName;
+        }
+        
         _isLoading = false;
       });
     } catch (e) {
@@ -65,11 +76,33 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     }
   }
 
+  Future<void> _loadStats() async {
+    setState(() {
+      _isStatsLoading = true;
+      _statsError = null;
+    });
+
+    try {
+      final statsResponse = await ApiService.getAdminStats();
+      if (!mounted) return;
+      setState(() {
+        _stats = statsResponse;
+        _isStatsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _statsError = e.toString();
+        _isStatsLoading = false;
+      });
+    }
+  }
+
   Future<void> _createPost() async {
     if (_titleController.text.isEmpty ||
         _descriptionController.text.isEmpty ||
         _contentController.text.isEmpty ||
-        _selectedSport == null) {
+        (_selectedSport == null && widget.userRole == 'super_admin')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill all required fields')),
       );
@@ -112,7 +145,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     _titleController.clear();
     _descriptionController.clear();
     _contentController.clear();
-    _selectedSport = null;
+    
+    // Don't clear sport for regular admins (it's their assigned sport)
+    if (widget.userRole == 'super_admin') {
+      _selectedSport = null;
+    }
+    
     _selectedTeam = null;
     _selectedCategory = 'News';
     _selectedImage = null;
@@ -297,23 +335,56 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           const SizedBox(height: 16),
 
           // Sport Selection
-          DropdownButtonFormField<String>(
-            value: _selectedSport,
-            decoration: const InputDecoration(
-              labelText: 'Sport *',
-              border: OutlineInputBorder(),
-            ),
-            items: _sports.map((sport) {
-              final name =
-                  (sport is Map ? sport['name'] : sport)?.toString() ?? '';
-              return DropdownMenuItem<String>(value: name, child: Text(name));
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedSport = value;
-              });
-            },
-          ),
+          widget.userRole == 'super_admin'
+              ? DropdownButtonFormField<String>(
+                  value: _selectedSport,
+                  decoration: const InputDecoration(
+                    labelText: 'Sport *',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _sports.map((sport) {
+                    final name =
+                        (sport is Map ? sport['name'] : sport)?.toString() ?? '';
+                    return DropdownMenuItem<String>(value: name, child: Text(name));
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedSport = value;
+                    });
+                  },
+                )
+              : Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Sport: ${_selectedSport ?? 'Loading...'}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const Spacer(),
+                      if (widget.adminSportName != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Assigned Sport',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.green[800],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
           const SizedBox(height: 16),
 
           // Category
@@ -567,20 +638,208 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   }
 
   Widget _buildAnalyticsTab() {
-    return const Padding(
-      padding: EdgeInsets.all(16),
+    final assignedSportName =
+        (_stats?['assigned_sport'] is Map<String, dynamic>)
+            ? (_stats?['assigned_sport']['name']?.toString())
+            : null;
+
+    final recentPosts = (_stats?['recent_posts'] is List)
+        ? (_stats?['recent_posts'] as List)
+        : const [];
+
+    final mostLikedPost = (_stats?['most_liked_post'] is Map)
+        ? (_stats?['most_liked_post'] as Map)
+        : null;
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Analytics',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Analytics',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+              ),
+              IconButton(
+                onPressed: _isStatsLoading ? null : _loadStats,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
           ),
-          SizedBox(height: 20),
-          // Placeholder for analytics widgets
-          Center(
-            child: Text(
-              'Analytics dashboard coming soon...',
-              style: TextStyle(color: Colors.grey),
+          const SizedBox(height: 12),
+          if (widget.userRole == 'admin' && assignedSportName != null)
+            Text(
+              'Assigned Sport: $assignedSportName',
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          if (_isStatsLoading) ...[
+            const SizedBox(height: 24),
+            const Center(child: CircularProgressIndicator()),
+          ] else if (_statsError != null) ...[
+            const SizedBox(height: 24),
+            Center(child: Text('Failed to load stats: $_statsError')),
+          ] else if (_stats == null) ...[
+            const SizedBox(height: 24),
+            const Center(child: Text('No stats available')), 
+          ] else ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _StatCard(
+                    title: 'Posts',
+                    value: '${_stats?['posts_count'] ?? 0}',
+                    color: _adminColor,
+                    icon: Icons.article,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _StatCard(
+                    title: 'Likes Received',
+                    value: '${_stats?['likes_received'] ?? 0}',
+                    color: Colors.red,
+                    icon: Icons.favorite,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (mostLikedPost != null) ...[
+              Text(
+                'Most Liked Post',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
+                  title: Text(mostLikedPost['title']?.toString() ?? 'Untitled'),
+                  subtitle: Text(
+                    '${mostLikedPost['sport'] ?? 'Unknown'}',
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.favorite, color: Colors.red, size: 18),
+                      const SizedBox(width: 4),
+                      Text('${mostLikedPost['likes_count'] ?? 0}'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Text(
+              'Recent Posts',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: recentPosts.isEmpty
+                  ? const Center(child: Text('No recent posts'))
+                  : ListView.builder(
+                      itemCount: recentPosts.length,
+                      itemBuilder: (context, index) {
+                        final post = recentPosts[index];
+                        return Card(
+                          child: ListTile(
+                            title: Text(post['title']?.toString() ?? 'Untitled'),
+                            subtitle: Text(
+                              '${post['sport'] ?? 'Unknown'}',
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.favorite,
+                                  color: Colors.red,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 4),
+                                Text('${post['likes_count'] ?? 0}'),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final Color color;
+  final IconData icon;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

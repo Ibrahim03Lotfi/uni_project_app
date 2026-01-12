@@ -31,6 +31,8 @@ class NewsArticleResource extends JsonResource
                 'name' => $this->author->name,
                 'email' => $this->author->email,
                 'role' => $this->author->role,
+                'assigned_sport_id' => $this->author->assigned_sport_id,
+                'assigned_sport' => $this->author->assignedSport?->only(['id', 'name']),
             ],
             'sport' => [
                 'id' => $this->sport->id,

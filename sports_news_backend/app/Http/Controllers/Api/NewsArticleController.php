@@ -23,21 +23,6 @@ class NewsArticleController extends Controller
         $query = NewsArticle::with(['author', 'sport', 'team'])
             ->withCount('likes');
 
-        // Filter by preferences if the user has them set
-        $preferredSportIds = $user->preferredSports()->pluck('sports.id');
-        $preferredTeamIds = $user->preferredTeams()->pluck('teams.id');
-
-        if ($preferredSportIds->isNotEmpty() || $preferredTeamIds->isNotEmpty()) {
-            $query->where(function ($q) use ($preferredSportIds, $preferredTeamIds) {
-                if ($preferredSportIds->isNotEmpty()) {
-                    $q->orWhereIn('sport_id', $preferredSportIds);
-                }
-                if ($preferredTeamIds->isNotEmpty()) {
-                    $q->orWhereIn('team_id', $preferredTeamIds);
-                }
-            });
-        }
-
         // Check if current user liked the post
         $query->addSelect([
             'is_liked' => function ($query) use ($user) {
@@ -51,6 +36,62 @@ class NewsArticleController extends Controller
         $posts = $query->latest()->paginate(10);
 
         return NewsArticleResource::collection($posts);
+    }
+
+    /**
+     * Get dashboard stats for the current admin.
+     */
+    public function myStats(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized. Admins only.'], 403);
+        }
+
+        $postsQuery = NewsArticle::query()->where('author_id', $user->id);
+
+        $postsCount = (clone $postsQuery)->count();
+
+        $likesReceived = (clone $postsQuery)
+            ->withCount('likes')
+            ->get()
+            ->sum('likes_count');
+
+        $recentPosts = (clone $postsQuery)
+            ->with(['sport'])
+            ->withCount('likes')
+            ->latest()
+            ->take(5)
+            ->get()
+            ->map(function ($post) {
+                return [
+                    'id' => $post->id,
+                    'title' => $post->title,
+                    'sport' => $post->sport?->name,
+                    'likes_count' => $post->likes_count,
+                    'created_at' => $post->created_at,
+                ];
+            });
+
+        $mostLikedPost = (clone $postsQuery)
+            ->with(['sport'])
+            ->withCount('likes')
+            ->orderByDesc('likes_count')
+            ->first();
+
+        return response()->json([
+            'posts_count' => $postsCount,
+            'likes_received' => $likesReceived,
+            'assigned_sport' => $user->assignedSport?->only(['id', 'name']),
+            'recent_posts' => $recentPosts,
+            'most_liked_post' => $mostLikedPost ? [
+                'id' => $mostLikedPost->id,
+                'title' => $mostLikedPost->title,
+                'sport' => $mostLikedPost->sport?->name,
+                'likes_count' => $mostLikedPost->likes_count,
+            ] : null,
+        ]);
     }
 
     /**
@@ -143,6 +184,7 @@ class NewsArticleController extends Controller
     public function search(Request $request)
     {
         $keyword = $request->input('keyword');
+        $user = $request->user();
 
         if (!$keyword) {
             return response()->json([]);
@@ -150,6 +192,15 @@ class NewsArticleController extends Controller
 
         $posts = NewsArticle::with(['author', 'sport', 'team'])
             ->where('title', 'like', "%{$keyword}%")
+            ->withCount('likes')
+            ->addSelect([
+                'is_liked' => function ($query) use ($user) {
+                    $query->selectRaw('count(*)')
+                        ->from('article_likes')
+                        ->whereColumn('article_id', 'news_articles.id')
+                        ->where('user_id', $user->id);
+                }
+            ])
             ->latest()
             ->paginate(10);
 

@@ -13,10 +13,13 @@ class NewsArticle {
   final String sport;
   final DateTime publishedAt;
   final String author;
-  final int likes;
+  final String authorRole;
+  final int? authorAssignedSportId;
+  int likes;
   final int comments;
   final List<String> tags;
   final String fullContent;
+  final bool isLiked;
 
   NewsArticle({
     required this.id,
@@ -27,14 +30,17 @@ class NewsArticle {
     required this.sport,
     required this.publishedAt,
     required this.author,
+    required this.authorRole,
+    this.authorAssignedSportId,
     this.likes = 0,
     this.comments = 0,
     required this.tags,
     required this.fullContent,
+    this.isLiked = false,
   });
 
   factory NewsArticle.fromJson(Map<String, dynamic> json) {
-    return NewsArticle(
+    final article = NewsArticle(
       id: json['id'],
       title: json['title'],
       description: json['description'],
@@ -45,13 +51,17 @@ class NewsArticle {
           .toLowerCase(), // Assuming sport object has name
       publishedAt: DateTime.parse(json['published_at']),
       author: json['author']['name'],
+      authorRole: json['author']['role']?.toString() ?? 'user',
+      authorAssignedSportId: json['author']['assigned_sport_id'] as int?,
       likes: json['likes_count'] ?? 0,
       comments: json['comments_count'] ?? 0,
       tags:
           (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           [],
       fullContent: json['content'],
+      isLiked: json['is_liked'] ?? false,
     );
+    return article;
   }
 }
 
@@ -72,9 +82,14 @@ class _NewsPageState extends State<NewsPage> {
 
   SportType _selectedSport = SportType.all;
   final List<NewsArticle> _allNews = [];
+  final List<NewsArticle> _searchResults = [];
+  final TextEditingController _searchController = TextEditingController();
+  final Set<int> _likedArticles = <int>{};
 
   bool _isLoading = true;
+  bool _isSearching = false;
   String? _error;
+  bool _isSearchMode = false;
 
   @override
   void initState() {
@@ -87,9 +102,16 @@ class _NewsPageState extends State<NewsPage> {
       final newsData = await ApiService.getNewsFeed();
       setState(() {
         _allNews.clear();
-        _allNews.addAll(
-          newsData.map((data) => NewsArticle.fromJson(data)).toList(),
-        );
+        final articles = newsData.map((data) => NewsArticle.fromJson(data)).toList();
+        _allNews.addAll(articles);
+        
+        // Initialize liked articles set
+        _likedArticles.clear();
+        for (var article in articles) {
+          if (article.isLiked) {
+            _likedArticles.add(article.id);
+          }
+        }
 
         // Sort by most recent
         _allNews.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
@@ -103,11 +125,92 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-  List<NewsArticle> get _filteredNews {
-    if (_selectedSport == SportType.all) {
-      return _allNews;
+  Future<void> _searchNews(String keyword) async {
+    if (keyword.trim().isEmpty) {
+      setState(() {
+        _isSearchMode = false;
+        _searchResults.clear();
+      });
+      return;
     }
-    return _allNews.where((news) => news.sport == _selectedSport.name).toList();
+
+    setState(() {
+      _isSearching = true;
+      _isSearchMode = true;
+    });
+
+    try {
+      final searchResults = await ApiService.searchPosts(keyword);
+      setState(() {
+        _searchResults.clear();
+        final articles = searchResults.map((data) => NewsArticle.fromJson(data)).toList();
+        _searchResults.addAll(articles);
+        
+        // Update liked articles set with search results
+        for (var article in articles) {
+          if (article.isLiked) {
+            _likedArticles.add(article.id);
+          }
+        }
+        
+        _isSearching = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Search failed: ${e.toString()}';
+        _isSearching = false;
+      });
+    }
+  }
+
+  Future<void> _toggleLike(int articleId) async {
+    try {
+      final response = await ApiService.toggleLike(articleId);
+      setState(() {
+        if (response['liked']) {
+          _likedArticles.add(articleId);
+        } else {
+          _likedArticles.remove(articleId);
+        }
+        
+        // Update like count in both lists
+        for (var article in _allNews) {
+          if (article.id == articleId) {
+            article.likes = response['likes_count'];
+            break;
+          }
+        }
+        for (var article in _searchResults) {
+          if (article.id == articleId) {
+            article.likes = response['likes_count'];
+            break;
+          }
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to toggle like: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  bool _isAdminPost(NewsArticle article) {
+    return article.authorRole == 'admin' || article.authorRole == 'super_admin';
+  }
+
+  List<NewsArticle> get _filteredNews {
+    final source = _isSearchMode ? _searchResults : _allNews;
+    final adminPosts = source.where(_isAdminPost);
+
+    if (_selectedSport == SportType.all) {
+      return adminPosts.toList();
+    }
+
+    return adminPosts
+        .where((news) => news.sport.toLowerCase() == _selectedSport.name)
+        .toList();
   }
 
   Color _getSportColor(SportType sport) {
@@ -172,8 +275,10 @@ class _NewsPageState extends State<NewsPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+            // Header with Search
             _buildHeader(),
+            // Search Bar
+            _buildSearchBar(),
             // Sport Filter
             _buildSportFilter(),
             // Content
@@ -193,7 +298,7 @@ class _NewsPageState extends State<NewsPage> {
           const SizedBox(width: 16),
           Expanded(
             child: Text(
-              'Sports News',
+              _isSearchMode ? 'Search Results' : 'Sports News',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -216,6 +321,57 @@ class _NewsPageState extends State<NewsPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) {
+          // Debounce search
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (_searchController.text == value) {
+              _searchNews(value);
+            }
+          });
+        },
+        decoration: InputDecoration(
+          hintText: 'Search news articles...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _isSearching
+              ? const Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        _searchNews('');
+                      },
+                    )
+                  : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
+        ),
       ),
     );
   }
@@ -590,45 +746,34 @@ class _NewsPageState extends State<NewsPage> {
                           ],
                         ),
                         const Spacer(),
-                        // Likes and Comments
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.favorite_outline,
-                              size: 16,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${article.likes}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
+                        // Likes
+                        GestureDetector(
+                          onTap: () => _toggleLike(article.id),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _likedArticles.contains(article.id)
+                                    ? Icons.favorite
+                                    : Icons.favorite_outline,
+                                size: 20,
+                                color: _likedArticles.contains(article.id)
+                                    ? Colors.red
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Icon(
-                              Icons.comment_outlined,
-                              size: 16,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${article.comments}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
+                              const SizedBox(width: 6),
+                              Text(
+                                '${article.likes}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -695,7 +840,9 @@ class _NewsPageState extends State<NewsPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              'No News Available',
+              _isSearchMode
+                  ? 'No search results found'
+                  : 'No News Available',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -705,7 +852,9 @@ class _NewsPageState extends State<NewsPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'No ${_selectedSport != SportType.all ? _getSportTitle(_selectedSport).toLowerCase() : ''} news found at the moment',
+              _isSearchMode
+                  ? 'Try searching with different keywords'
+                  : 'No ${_selectedSport != SportType.all ? _getSportTitle(_selectedSport).toLowerCase() : ''} news found at the moment',
               style: TextStyle(
                 fontSize: 14,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -735,14 +884,19 @@ class _NewsPageState extends State<NewsPage> {
 }
 
 // News Details Page
-class NewsDetailsPage extends StatelessWidget {
+class NewsDetailsPage extends StatefulWidget {
   final NewsArticle article;
 
   const NewsDetailsPage({super.key, required this.article});
 
   @override
+  State<NewsDetailsPage> createState() => _NewsDetailsPageState();
+}
+
+class _NewsDetailsPageState extends State<NewsDetailsPage> {
+  @override
   Widget build(BuildContext context) {
-    final sportColor = _getSportColor(article.sport);
+    final sportColor = _getSportColor(widget.article.sport);
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -788,15 +942,6 @@ class NewsDetailsPage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    IconButton(
-                      onPressed: () {
-                        // Share functionality
-                      },
-                      icon: const Icon(
-                        Icons.share,
-                        color: _NewsPageState.darkGreen,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -829,10 +974,29 @@ class NewsDetailsPage extends StatelessWidget {
                         ),
                       ),
                       child: Center(
-                        child: Text(
-                          article.imageUrl,
-                          style: const TextStyle(fontSize: 72),
-                        ),
+                        child: widget.article.imageUrl.isNotEmpty
+                            ? Image.network(
+                                widget.article.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: sportColor.withOpacity(0.2),
+                                    child: Icon(
+                                      Icons.image_not_supported,
+                                      color: sportColor,
+                                      size: 40,
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: sportColor.withOpacity(0.2),
+                                child: Icon(
+                                  Icons.article,
+                                  color: sportColor,
+                                  size: 40,
+                                ),
+                              ),
                       ),
                     ),
                     // Content
@@ -854,7 +1018,7 @@ class NewsDetailsPage extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  article.category,
+                                  widget.article.category,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: sportColor,
@@ -873,7 +1037,7 @@ class NewsDetailsPage extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  article.sport.toUpperCase(),
+                                  widget.article.sport.toUpperCase(),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: colorScheme.onSurfaceVariant,
@@ -886,7 +1050,7 @@ class NewsDetailsPage extends StatelessWidget {
                           const SizedBox(height: 16),
                           // Title
                           Text(
-                            article.title,
+                            widget.article.title,
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
@@ -905,7 +1069,7 @@ class NewsDetailsPage extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                article.author,
+                                widget.article.author,
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: colorScheme.onSurfaceVariant,
@@ -921,7 +1085,7 @@ class NewsDetailsPage extends StatelessWidget {
                               Text(
                                 DateFormat(
                                   'MMM d, yyyy • HH:mm',
-                                ).format(article.publishedAt),
+                                ).format(widget.article.publishedAt),
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: colorScheme.onSurfaceVariant,
@@ -932,7 +1096,7 @@ class NewsDetailsPage extends StatelessWidget {
                           const SizedBox(height: 24),
                           // Full Content
                           Text(
-                            article.fullContent,
+                            widget.article.fullContent,
                             style: TextStyle(
                               fontSize: 16,
                               color: colorScheme.onSurface,
@@ -944,7 +1108,7 @@ class NewsDetailsPage extends StatelessWidget {
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: article.tags.map((tag) {
+                            children: widget.article.tags.map((tag) {
                               return Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
@@ -978,83 +1142,46 @@ class NewsDetailsPage extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
-                                Column(
-                                  children: [
-                                    Icon(
-                                      Icons.favorite_border,
-                                      color: sportColor,
-                                      size: 24,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${article.likes}',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: sportColor,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Likes',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
                                 /*
-                                Column(
-                                  children: [
-                                    Icon(
-                                      Icons.comment_outlined,
-                                      color: sportColor,
-                                      size: 24,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${article.comments}',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: sportColor,
+                                // Like Button
+                                GestureDetector(
+                                  onTap: _toggleLike,
+                                  child: Column(
+                                    children: [
+                                      _isLiking
+                                          ? SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor: AlwaysStoppedAnimation<Color>(sportColor),
+                                              ),
+                                            )
+                                          : Icon(
+                                              _isLiked ? Icons.favorite : Icons.favorite_border,
+                                              color: _isLiked ? Colors.red : sportColor,
+                                              size: 24,
+                                            ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '$_likesCount',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: sportColor,
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      'Comments',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: colorScheme.onSurfaceVariant,
+                                      Text(
+                                        'Likes',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                                 */
-                                Column(
-                                  children: [
-                                    Icon(
-                                      Icons.share_outlined,
-                                      color: sportColor,
-                                      size: 24,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Share',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Article',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               ],
                             ),
                           ),

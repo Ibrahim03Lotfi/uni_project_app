@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.8:8000/api';
+  static const String baseUrl = 'http://172.20.10.5:8000/api';
   static String? token;
 
   static Future<Map<String, String>> get headers async {
@@ -14,12 +14,36 @@ class ApiService {
     return headers;
   }
 
+  // Admin Dashboard Stats
+  static Future<Map<String, dynamic>> getAdminStats() async {
+    final url = Uri.parse('$baseUrl/admin/stats');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to load admin stats: ${response.body}');
+    }
+  }
+
+  // Admin: Get My Posts
+  static Future<List<dynamic>> getMyPosts() async {
+    final url = Uri.parse('$baseUrl/posts/mine');
+    final response = await http.get(url, headers: await headers);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['data'];
+    } else {
+      throw Exception('Failed to load admin posts: ${response.body}');
+    }
+  }
+
   static Future<Map<String, dynamic>> register({
     required String name,
     required String email,
     required String password,
-    String? phone,
-    String? bio,
+  
   }) async {
     final url = Uri.parse('$baseUrl/register');
     final response = await http.post(
@@ -30,8 +54,7 @@ class ApiService {
         'email': email,
         'password': password,
         'password_confirmation': password,
-        'phone': phone,
-        'bio': bio,
+        
       }),
     );
 
@@ -100,7 +123,11 @@ class ApiService {
     final response = await http.get(url, headers: await headers);
 
     if (response.statusCode == 200) {
-      return json.decode(response.body);
+      final decoded = json.decode(response.body);
+      if (decoded is Map<String, dynamic> && decoded['data'] is Map<String, dynamic>) {
+        return decoded['data'] as Map<String, dynamic>;
+      }
+      return decoded as Map<String, dynamic>;
     } else {
       throw Exception('Failed to get user data');
     }

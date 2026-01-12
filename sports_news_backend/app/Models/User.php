@@ -75,4 +75,12 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Sport::class, 'assigned_sport_id');
     }
+
+    public function hasPreferences(): bool
+    {
+        return $this->preferredSports()->count() > 0 || 
+               $this->preferredTeams()->count() > 0 || 
+               $this->preferredLeagues()->count() > 0 || 
+               $this->preferredPlayers()->count() > 0;
+    }
 }

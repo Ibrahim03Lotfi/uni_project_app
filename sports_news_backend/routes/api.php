@@ -57,19 +57,19 @@ Route::middleware('auth:sanctum')->group(function () {
     // Individual follow/unfollow routes
     Route::prefix('user/preferences')->group(function () {
         // Sports
-        Route::post('/sports', [UserPreferenceController::class, 'updateSports']);
+        Route::post('/sports', [UserPreferenceController::class, 'followSports']);
         Route::delete('/sports/{sportId}', [UserPreferenceController::class, 'unfollowSport']);
         
         // Leagues
-        Route::post('/leagues', [UserPreferenceController::class, 'updateLeagues']);
+        Route::post('/leagues', [UserPreferenceController::class, 'followLeagues']);
         Route::delete('/leagues/{leagueId}', [UserPreferenceController::class, 'unfollowLeague']);
         
         // Teams
-        Route::post('/teams', [UserPreferenceController::class, 'updateTeams']);
+        Route::post('/teams', [UserPreferenceController::class, 'followTeams']);
         Route::delete('/teams/{teamId}', [UserPreferenceController::class, 'unfollowTeam']);
         
         // Players
-        Route::post('/players', [UserPreferenceController::class, 'updatePlayers']);
+        Route::post('/players', [UserPreferenceController::class, 'followPlayers']);
         Route::delete('/players/{playerId}', [UserPreferenceController::class, 'unfollowPlayer']);
     });
 
@@ -77,6 +77,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/feed', [NewsArticleController::class, 'index']); // User News Feed
     Route::get('/posts/search', [NewsArticleController::class, 'search']); // Search
     Route::post('/posts', [NewsArticleController::class, 'store'])->middleware('role:admin'); // Create News - Admin only
+    Route::get('/posts/mine', [NewsArticleController::class, 'myPosts'])->middleware('role:admin'); // Admin's own posts
+    Route::get('/admin/stats', [NewsArticleController::class, 'myStats'])->middleware('role:admin'); // Admin dashboard stats
     Route::post('/matches', [GameMatchController::class, 'store'])->middleware('role:admin'); // Create Match - Admin only
     Route::put('/matches/{match}', [GameMatchController::class, 'update'])->middleware('role:admin'); // Update Match - Admin only
     Route::patch('/matches/{match}', [GameMatchController::class, 'update'])->middleware('role:admin'); // Update Match - Admin only
